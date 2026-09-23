@@ -849,6 +849,94 @@ export default function App() {
                 </div>
               </div>
             </div>
+
+            {/* ========================================================= */}
+            {/* DIRECT SEARCH & PURE DATA RETRIEVAL (NO AI / NO PROCESSING) */}
+            {/* ========================================================= */}
+            <div className="bg-white p-6 rounded-[8px] border border-[#c2d4ec] shadow-[0_1px_2px_rgba(0,0,0,0.06)] space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#ebf3ff] pb-4">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2.5 py-0.5 rounded-[100px] bg-[#ebf3ff] text-[#0068f5] text-[11px] font-bold border border-[#c2d4ec]">
+                      Pure Data Retrieval
+                    </span>
+                    <h3 className="text-lg font-bold text-[#0c3058]">
+                      🔍 חיפוש ואחזור נתונים ישיר – ללא AI, ללא מענה לשאלות וללא עיבוד מידע
+                    </h3>
+                  </div>
+                  <p className="text-xs text-[#5878a4]">
+                    האם ניתן לבצע רק חיפוש מילים גולמי ואחזור עובדתי? <strong>כן, במאת האחוזים.</strong> כלי האחזור שולפים נתוני אמת ישירות ממאגר האסדרה הלאומי (regulation.gov.il) בדיוק כפי שהם רשומים ברשומות.
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    setSelectedTool('search_regulations');
+                    setToolParamsJson('{\n  "query": "שירותי תעופה",\n  "limit": 5\n}');
+                    setActiveTab('console');
+                  }}
+                  className="px-4 py-2 rounded-[8px] bg-[#0068f5] hover:bg-[#0057cc] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-sm"
+                >
+                  <Terminal className="w-3.5 h-3.5" /> נסה בקונסולת ה-MCP
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-1">
+                {/* Option 1: Raw Keyword Search */}
+                <div className="p-4 rounded-[8px] bg-[#f1f5fb] border border-[#c2d4ec] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#0c3058] flex items-center gap-1.5">
+                      <Search className="w-4 h-4 text-[#0068f5]" /> 1. חיפוש לפי מילות מפתח
+                    </span>
+                    <span className="text-[10px] font-mono bg-white px-2 py-0.5 rounded border border-[#c2d4ec] text-[#5878a4]">
+                      search_regulations
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#5878a4]">
+                    חיפוש טקסטואלי חופשי בשם החוק, התקנה או החוק המסמיך (למשל: "תעופה", "מזון", "בטיחות אש", "סייבר").
+                  </p>
+                  <div className="bg-white p-2.5 rounded-[6px] border border-[#c2d4ec] text-[11px] font-mono text-[#0c3058]" dir="ltr">
+                    &#123; "query": "שירותי תעופה", "limit": 5 &#125;
+                  </div>
+                </div>
+
+                {/* Option 2: Direct ID Retrieval */}
+                <div className="p-4 rounded-[8px] bg-[#f1f5fb] border border-[#c2d4ec] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#0c3058] flex items-center gap-1.5">
+                      <FileCode className="w-4 h-4 text-[#499522]" /> 2. אחזור ישיר לפי מזהה רשומה
+                    </span>
+                    <span className="text-[10px] font-mono bg-white px-2 py-0.5 rounded border border-[#c2d4ec] text-[#5878a4]">
+                      get_regulation_by_id
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#5878a4]">
+                    שליפה דטרמיניסטית ומיידית של רשומת חוק לפי מזהה ייחודי (ID), כולל קישורים ישירים לכנסת ולויקיטקסט.
+                  </p>
+                  <div className="bg-white p-2.5 rounded-[6px] border border-[#c2d4ec] text-[11px] font-mono text-[#0c3058]" dir="ltr">
+                    &#123; "id": 6212 &#125;
+                  </div>
+                </div>
+
+                {/* Option 3: Filtered Multi-Field Search */}
+                <div className="p-4 rounded-[8px] bg-[#f1f5fb] border border-[#c2d4ec] space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-[#0c3058] flex items-center gap-1.5">
+                      <SlidersHorizontal className="w-4 h-4 text-[#997012]" /> 3. סינון לפי משרד ורובד חקיקה
+                    </span>
+                    <span className="text-[10px] font-mono bg-white px-2 py-0.5 rounded border border-[#c2d4ec] text-[#5878a4]">
+                      filters
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#5878a4]">
+                    חיתוך מדויק לפי משרד ממונה (<code className="text-[#0068f5]">office_name</code>), סוג חקיקה (ראשית/משנה), ותגיות נושא.
+                  </p>
+                  <div className="bg-white p-2.5 rounded-[6px] border border-[#c2d4ec] text-[11px] font-mono text-[#0c3058]" dir="ltr">
+                    &#123; "office_name": "רשות התעופה האזרחית" &#125;
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
