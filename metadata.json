@@ -1,0 +1,6 @@
+{
+  "name": "Israel Regulation MCP Server & Explorer",
+  "description": "שרת פרוטוקול הקשר למודלים (MCP) וממשק חקר מתקדם למאגר האסדרה והחקיקה הלאומי regulation.gov.il של מדינת ישראל עבור Claude, Cursor, Windsurf וסוכני AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

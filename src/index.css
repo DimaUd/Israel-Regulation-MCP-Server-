@@ -1,0 +1,72 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  /* IGDS 2.0 Primary Colors */
+  --israel-blue-500: #0068f5;   /* Main brand, buttons, links */
+  --israel-blue-600: #0057cc;   /* Hover state */
+  --israel-blue-700: #0045a3;   /* Pressed state */
+  --dawn-blue-900:   #0c3058;   /* Primary text / headings */
+  --mist-blue-600:   #5878a4;   /* Secondary text */
+
+  /* Backgrounds */
+  --israel-blue-50:  #ebf3ff;   /* Page background */
+  --white:           #ffffff;   /* Card background */
+  --dim-grey-50:     #f1f5fb;   /* Hover/secondary bg */
+
+  /* Status */
+  --galil-green-700:  #499522;  /* Success text/border */
+  --galil-green-500:  #7ad94a;  /* Success progress bar */
+  --negev-yellow-700: #997012;  /* Warning text/border */
+  --coral-red-700:    #a72223;  /* Error text/border */
+  --coral-red-500:    #eb4a4b;  /* Error progress bar */
+
+  /* IGDS Shadows */
+  --igds-shadow: 0px 1px 2px 0px rgba(0,0,0,0.15), 0px 1px 3px 1px rgba(0,0,0,0.08);
+  --igds-shadow-hover: 0px 3px 6px 1px rgba(0,104,245,0.15), 0px 1px 3px 1px rgba(0,0,0,0.1);
+  --igds-shadow-modal: 0px 4px 8px 3px rgba(0,0,0,0.15), 0px 1px 6px 2px rgba(0,0,0,0.12);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  direction: rtl;
+}
+
+body {
+  font-family: 'Rubik', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-weight: 400;
+  color: #0c3058;
+  background-color: #ebf3ff;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+}
+
+:focus-visible {
+  outline: 2px solid #0068f5 !important;
+  outline-offset: 2px !important;
+}
+
+[dir="rtl"] {
+  text-align: right;
+}
+
+/* Custom scrollbars matching IGDS */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #ebf3ff;
+}
+::-webkit-scrollbar-thumb {
+  background: #c2d4ec;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #5878a4;
+}
