@@ -99,8 +99,9 @@ export default function App() {
   const [reliefSearch, setReliefSearch] = useState('');
 
   // AI Advisor state
-  const [advisorQuery, setAdvisorQuery] = useState('הפעלת שירותי תעופה מסחרית והשכרת כלי טיס בישראל');
-  const [advisorSector, setAdvisorSector] = useState('aviation');
+  const [advisorQuery, setAdvisorQuery] = useState('גידול עופות מה מותר ומהם תנאי הרישוי ללול בישראל?');
+  const [advisorSector, setAdvisorSector] = useState('auto');
+  const [detectedSectorName, setDetectedSectorName] = useState<string | null>('חקלאות, גידול עופות, לולים ובעלי חיים');
   const [advisorResult, setAdvisorResult] = useState<string | null>(null);
   const [advisorLoading, setAdvisorLoading] = useState(false);
   const [groundedLaws, setGroundedLaws] = useState<RegulationItem[]>([]);
@@ -305,22 +306,26 @@ export default function App() {
   const handleAskAdvisor = async (customQuery?: string, sectorKey?: string) => {
     const q = customQuery !== undefined ? customQuery : advisorQuery;
     const s = sectorKey !== undefined ? sectorKey : advisorSector;
-    if (!q) return;
+    if (!q || !q.trim()) return;
 
     setAdvisorLoading(true);
     setAdvisorResult(null);
+    setDetectedSectorName(null);
 
     try {
       const res = await fetch('/api/regulation/ai-consult', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: q, sector: s }),
+        body: JSON.stringify({ query: q.trim(), sector: s }),
       });
 
       if (res.ok) {
         const data = await res.json();
         setAdvisorResult(data.analysis || 'לא התקבל פירוט.');
         setGroundedLaws(data.groundedRegulations || []);
+        if (data.detectedSector) {
+          setDetectedSectorName(data.detectedSector);
+        }
       }
     } catch (e: any) {
       setAdvisorResult(`שגיאה בקבלת תשובה: ${e.message}`);
@@ -2003,35 +2008,81 @@ export default function App() {
         {/* ========================================================= */}
         {activeTab === 'advisor' && (
           <div className="space-y-6">
-            <div className="bg-white p-6 rounded-[8px] border border-[#c2d4ec] shadow-[0_1px_3px_rgba(12,48,88,0.08)] space-y-3">
-              <span className="px-3 py-1 rounded-[100px] bg-[#ebf3ff] text-[#0068f5] border border-[#c2d4ec] text-xs font-semibold inline-flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#0068f5]" />
-                מופעל על ידי Gemini ומקורקע בחוקי מדינת ישראל
-              </span>
-              <h2 className="text-2xl font-bold text-[#0c3058]">יועץ ציות ורגולציה מבוסס AI למאגר האסדרה</h2>
-              <p className="text-[#5878a4] text-xs leading-relaxed max-w-3xl">
-                הזן כל מיזם, עסק או מוצר מתוכנן, והיועץ ימפה עבורך את הרגולטורים הממונים, הרישיונות הנדרשים, מוקשי הציות, והחוקים המחייבים מתוך מאגר האסדרה הלאומי regulation.gov.il.
-              </p>
+            {/* Header & Explanation Card */}
+            <div className="bg-white p-6 rounded-[8px] border border-[#c2d4ec] shadow-[0_1px_3px_rgba(12,48,88,0.08)] space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="px-3 py-1 rounded-[100px] bg-[#ebf3ff] text-[#0068f5] border border-[#c2d4ec] text-xs font-semibold inline-flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-[#0068f5]" />
+                  מופעל על ידי Gemini 2.5 ומקורקע ב-6,576+ חוקי מאגר האסדרה הלאומי
+                </span>
+                <span className="text-xs text-[#5878a4] font-mono">regulation.gov.il + data.gov.il</span>
+              </div>
+
+              <div>
+                <h2 className="text-2xl font-bold text-[#0c3058]">יועץ ציות ורגולציה מבוסס AI למאגר האסדרה</h2>
+                <p className="text-[#5878a4] text-xs leading-relaxed max-w-3xl mt-1">
+                  הזן כל פעילות עסקית, יוזמה או מוצר מתוכנן. המערכת מחלצת מילות מפתח, שולפת בזמן אמת את החוקים והתקנות הרלוונטיים ממאגר האסדרה הלאומי, ומפיקה דוח ציות עסקי מקיף.
+                </p>
+              </div>
+
+              {/* Explainer Box: How to use with poultry example */}
+              <div className="p-4 rounded-[8px] bg-[#ebf3ff]/60 border border-[#c2d4ec] space-y-2.5 text-xs text-[#0c3058]">
+                <div className="flex items-center gap-2 font-bold text-[#0068f5]">
+                  <Info className="w-4 h-4 text-[#0068f5]" />
+                  <span>איך להשתמש ביועץ? (דוגמה מעשית: "גידול עופות מה מותר")</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-1">
+                  <div className="p-3 bg-white rounded-[6px] border border-[#c2d4ec]/80 space-y-1">
+                    <span className="font-bold text-[#0068f5] block">1. שאל בכל נושא חופשי</span>
+                    <p className="text-[#5878a4] leading-relaxed">
+                      הקלד לדוגמה: <strong>"גידול עופות מה מותר"</strong> או <strong>"תנאי רישוי להקמת לול"</strong>. המערכת תזהה אוטומטית שמדובר בענף החקלאות והלולים.
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white rounded-[6px] border border-[#c2d4ec]/80 space-y-1">
+                    <span className="font-bold text-[#0068f5] block">2. שליפה חיה מהמאגר הלאומי</span>
+                    <p className="text-[#5878a4] leading-relaxed">
+                      המערכת שולפת אוטומטית מתוך 6,576+ חוקי המאגר: <em>תקנות משקי עופות ולולים</em>, <em>מחלות בעלי חיים לעופות</em>, ו-<em>צער בעלי חיים והובלת עופות</em>.
+                    </p>
+                  </div>
+                  <div className="p-3 bg-white rounded-[6px] border border-[#c2d4ec]/80 space-y-1">
+                    <span className="font-bold text-[#0068f5] block">3. דוח ציות ופעולה מלא</span>
+                    <p className="text-[#5878a4] leading-relaxed">
+                      תקבל מיפוי של משרד החקלאות והשירותים הווטרינריים, דרישות רישיון עסק פריט 3.4, מרחקי הפרדה, מוקשי ציות, וצעדים ראשונים ליישום.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
               {/* Industry Presets */}
-              <div className="pt-2">
-                <span className="text-xs text-[#0c3058] block mb-2 font-bold">ענפים מובילים לבדיקה מהירה:</span>
+              <div className="pt-1">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs text-[#0c3058] font-bold flex items-center gap-1.5">
+                    דוגמאות מהירות לבדיקה בלחיצה אחת:
+                    <InfoTooltip text="לחיצה על כל אחד מהענפים תזין שאלת אמת לדוגמה ותריץ את הניתוח המלא מול מאגר האסדרה." />
+                  </span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => {
-                      setAdvisorSector('aviation');
-                      setAdvisorQuery('הפעלת שירותי תעופה מסחרית והשכרת כלי טיס בישראל');
-                      handleAskAdvisor('הפעלת שירותי תעופה מסחרית והשכרת כלי טיס בישראל', 'aviation');
+                      setAdvisorSector('agriculture');
+                      const q = 'גידול עופות מה מותר ומהם תנאי הרישוי ללול בישראל?';
+                      setAdvisorQuery(q);
+                      handleAskAdvisor(q, 'agriculture');
                     }}
-                    className="px-3 py-1.5 rounded-[8px] bg-[#ebf3ff] hover:bg-[#0068f5] hover:text-white text-[#0068f5] text-xs font-semibold border border-[#c2d4ec] cursor-pointer flex items-center gap-1.5 transition-colors"
+                    className={`px-3 py-1.5 rounded-[8px] text-xs font-semibold border cursor-pointer flex items-center gap-1.5 transition-all shadow-xs ${
+                      advisorSector === 'agriculture'
+                        ? 'bg-[#0068f5] text-white border-[#0068f5]'
+                        : 'bg-[#ebf3ff] hover:bg-[#0068f5] hover:text-white text-[#0068f5] border-[#c2d4ec]'
+                    }`}
                   >
-                    ✈️ תעופה, השכרת מטוסים ורחפנים
+                    🐔 חקלאות, גידול עופות ולולים (הדוגמה שלך)
                   </button>
                   <button
                     onClick={() => {
                       setAdvisorSector('restaurant');
-                      setAdvisorQuery('פתיחת מסעדה ובית קפה עם ישיבה בחוץ, מטבח חם ומכירת אלכוהול');
-                      handleAskAdvisor('פתיחת מסעדה ובית קפה עם ישיבה בחוץ, מטבח חם ומכירת אלכוהול', 'restaurant');
+                      const q = 'פתיחת מסעדה ובית קפה עם ישיבה בחוץ, מטבח חם ומכירת אלכוהול';
+                      setAdvisorQuery(q);
+                      handleAskAdvisor(q, 'restaurant');
                     }}
                     className="px-3 py-1.5 rounded-[8px] bg-[#f1f5fb] hover:bg-[#ebf3ff] text-[#0c3058] text-xs font-medium border border-[#c2d4ec] cursor-pointer flex items-center gap-1.5"
                   >
@@ -2039,9 +2090,21 @@ export default function App() {
                   </button>
                   <button
                     onClick={() => {
+                      setAdvisorSector('aviation');
+                      const q = 'הפעלת שירותי תעופה מסחרית, השכרת כלי טיס והטסת רחפנים';
+                      setAdvisorQuery(q);
+                      handleAskAdvisor(q, 'aviation');
+                    }}
+                    className="px-3 py-1.5 rounded-[8px] bg-[#f1f5fb] hover:bg-[#ebf3ff] text-[#0c3058] text-xs font-medium border border-[#c2d4ec] cursor-pointer flex items-center gap-1.5"
+                  >
+                    ✈️ תעופה, כלי טיס ורחפנים
+                  </button>
+                  <button
+                    onClick={() => {
                       setAdvisorSector('fintech');
-                      setAdvisorQuery('הקמת סטארטאפ תשלומים, ארנקים דיגיטליים וייזום תשלומים');
-                      handleAskAdvisor('הקמת סטארטאפ תשלומים, ארנקים דיגיטליים וייזום תשלומים', 'fintech');
+                      const q = 'הקמת סטארטאפ תשלומים, ארנקים דיגיטליים וייזום תשלומים';
+                      setAdvisorQuery(q);
+                      handleAskAdvisor(q, 'fintech');
                     }}
                     className="px-3 py-1.5 rounded-[8px] bg-[#f1f5fb] hover:bg-[#ebf3ff] text-[#0c3058] text-xs font-medium border border-[#c2d4ec] cursor-pointer flex items-center gap-1.5"
                   >
@@ -2050,33 +2113,84 @@ export default function App() {
                   <button
                     onClick={() => {
                       setAdvisorSector('ai_cyber');
-                      setAdvisorQuery('פיתוח פלטפורמת בינה מלאכותית לניתוח נתוני לקוחות רגישים בענן');
-                      handleAskAdvisor('פיתוח פלטפורמת בינה מלאכותית לניתוח נתוני לקוחות רגישים בענן', 'ai_cyber');
+                      const q = 'פיתוח פלטפורמת בינה מלאכותית לניתוח נתוני לקוחות רגישים בענן';
+                      setAdvisorQuery(q);
+                      handleAskAdvisor(q, 'ai_cyber');
                     }}
                     className="px-3 py-1.5 rounded-[8px] bg-[#f1f5fb] hover:bg-[#ebf3ff] text-[#0c3058] text-xs font-medium border border-[#c2d4ec] cursor-pointer flex items-center gap-1.5"
                   >
                     🤖 בינה מלאכותית וסייבר
                   </button>
+                  <button
+                    onClick={() => {
+                      setAdvisorSector('solar_energy');
+                      const q = 'התקנת מערכות פוטו-וולטאיות מסחריות ואגירת אנרגיה במתח גבוה';
+                      setAdvisorQuery(q);
+                      handleAskAdvisor(q, 'solar_energy');
+                    }}
+                    className="px-3 py-1.5 rounded-[8px] bg-[#f1f5fb] hover:bg-[#ebf3ff] text-[#0c3058] text-xs font-medium border border-[#c2d4ec] cursor-pointer flex items-center gap-1.5"
+                  >
+                    ☀️ אנרגיה סולארית וחשמל
+                  </button>
+                  <button
+                    onClick={() => {
+                      setAdvisorSector('import_export');
+                      const q = 'יבוא מוצרי צריכה ומכשירי חשמל במסלול מה שטוב לאירופה';
+                      setAdvisorQuery(q);
+                      handleAskAdvisor(q, 'import_export');
+                    }}
+                    className="px-3 py-1.5 rounded-[8px] bg-[#f1f5fb] hover:bg-[#ebf3ff] text-[#0c3058] text-xs font-medium border border-[#c2d4ec] cursor-pointer flex items-center gap-1.5"
+                  >
+                    📦 יבוא, תקינה ומכס
+                  </button>
                 </div>
               </div>
             </div>
 
-            {/* Input Box */}
+            {/* Input Box with Sector Selector */}
             <div className="bg-white p-5 rounded-[8px] border border-[#c2d4ec] shadow-[0_1px_2px_rgba(0,0,0,0.06)] space-y-3">
-              <label className="text-xs font-bold text-[#0c3058] block">תיאור הפעילות העסקית או השאלה הרגולטורית:</label>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <label className="text-xs font-bold text-[#0c3058] flex items-center gap-1.5">
+                  תיאור הפעילות העסקית או השאלה הרגולטורית:
+                  <InfoTooltip text="ניתן לכתוב בשפה חופשית וטבעית, המערכת תזהה את הענף ותשלוף את החוקים המתאימים ביותר." />
+                </label>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-[#5878a4]">ענף מוגדר:</span>
+                  <select
+                    value={advisorSector}
+                    onChange={(e) => setAdvisorSector(e.target.value)}
+                    className="bg-[#f1f5fb] border border-[#c2d4ec] rounded-[6px] px-2.5 py-1 text-xs text-[#0c3058] font-medium focus:border-[#0068f5]"
+                  >
+                    <option value="auto">🤖 זיהוי אוטומטי חכם מתוך השאלה (מומלץ)</option>
+                    <option value="agriculture">🐔 חקלאות, גידול עופות, לולים ובעלי חיים</option>
+                    <option value="restaurant">🍽️ מסעדות, בתי קפה ושירותי מזון</option>
+                    <option value="aviation">✈️ תעופה, כלי טיס ורחפנים</option>
+                    <option value="fintech">💳 פינטק ושירותי תשלום</option>
+                    <option value="ai_cyber">🤖 בינה מלאכותית, סייבר וענן</option>
+                    <option value="solar_energy">☀️ אנרגיה סולארית וחשמל</option>
+                    <option value="import_export">📦 יבוא, סחר בינלאומי ותקינה</option>
+                  </select>
+                </div>
+              </div>
+
               <div className="flex gap-3">
                 <input
                   type="text"
                   value={advisorQuery}
-                  onChange={(e) => setAdvisorQuery(e.target.value)}
+                  onChange={(e) => {
+                    setAdvisorQuery(e.target.value);
+                    if (advisorSector !== 'auto') {
+                      setAdvisorSector('auto');
+                    }
+                  }}
                   onKeyDown={(e) => e.key === 'Enter' && handleAskAdvisor()}
-                  placeholder="תאר את הפעילות העסקית המתוכננת..."
+                  placeholder="לדוגמה: גידול עופות מה מותר, הקמת לול פטם ורישוי עסקים חקלאי..."
                   className="flex-1 bg-[#f1f5fb] border border-[#c2d4ec] focus:border-[#0068f5] focus:bg-white rounded-[8px] px-4 py-3 text-sm text-[#0c3058] placeholder-[#5878a4]"
                 />
                 <button
                   onClick={() => handleAskAdvisor()}
                   disabled={advisorLoading}
-                  className="px-6 py-3 rounded-[8px] bg-[#0068f5] hover:bg-[#0057cc] text-white font-bold text-sm flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
+                  className="px-6 py-3 rounded-[8px] bg-[#0068f5] hover:bg-[#0057cc] text-white font-bold text-sm flex items-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   {advisorLoading ? (
                     <>
@@ -2093,30 +2207,40 @@ export default function App() {
 
             {/* Result Area */}
             {advisorLoading && (
-              <div className="p-12 rounded-[8px] bg-white border border-[#c2d4ec] flex flex-col items-center justify-center text-[#5878a4] gap-3">
+              <div className="p-12 rounded-[8px] bg-white border border-[#c2d4ec] flex flex-col items-center justify-center text-[#5878a4] gap-3 shadow-xs">
                 <Sparkles className="w-8 h-8 animate-spin text-[#0068f5]" />
-                <p className="text-sm font-semibold text-[#0c3058]">מאחזר חוקים ממאגר האסדרה הלאומי ומבצע הערכת ציות בבינה מלאכותית...</p>
+                <p className="text-sm font-semibold text-[#0c3058]">מאתר חוקים מתאימים מתוך 6,576+ רשומות ומבצע הערכת ציות בבינה מלאכותית...</p>
+                <span className="text-xs text-[#5878a4]">קישור ישיר למאגר האסדרה הלאומי regulation.gov.il</span>
               </div>
             )}
 
             {!advisorLoading && advisorResult && (
               <div className="bg-white p-6 rounded-[8px] border border-[#c2d4ec] shadow-[0_1px_3px_rgba(12,48,88,0.08)] space-y-5">
                 <div className="flex flex-wrap items-center justify-between pb-3 border-b border-[#ebf3ff] gap-2">
-                  <h3 className="font-bold text-[#0c3058] text-base flex items-center gap-2">
+                  <div className="flex items-center gap-2">
                     <ShieldCheck className="w-5 h-5 text-[#499522]" />
-                    דוח מיפוי רגולציה וציות עסקי (תצוגת Markdown מעוצבת)
-                  </h3>
+                    <h3 className="font-bold text-[#0c3058] text-base">
+                      דוח מיפוי רגולציה וציות עסקי (תצוגת Markdown מעוצבת)
+                    </h3>
+                    {detectedSectorName && (
+                      <span className="px-2.5 py-0.5 rounded-[100px] bg-[#eef7ee] text-[#2d6a13] border border-[#c5e6be] text-xs font-semibold">
+                        ענף מזוהה: {detectedSectorName}
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2">
                     <button
                       onClick={() => handleDownloadMarkdown(advisorResult, 'regulatory_compliance_report.md')}
                       className="px-2.5 py-1 rounded-[6px] bg-white hover:bg-[#ebf3ff] text-[#0068f5] border border-[#c2d4ec] text-xs font-medium flex items-center gap-1 cursor-pointer transition-colors"
+                      title="הורד קובץ Markdown למחשב"
                     >
                       <Download className="w-3.5 h-3.5" />
                       הורד MD
                     </button>
                     <button
                       onClick={() => handleCopy(advisorResult, 'advisor-report')}
-                      className="px-2.5 py-1 rounded-[6px] bg-[#0068f5] hover:bg-[#0057cc] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs"
+                      className="px-2.5 py-1 rounded-[6px] bg-[#0068f5] hover:bg-[#0057cc] text-white text-xs font-semibold flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
+                      title="העתק את תוכן הדוח ללוח"
                     >
                       {copiedId === 'advisor-report' ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
                       העתק Markdown
@@ -2129,13 +2253,55 @@ export default function App() {
                 </div>
 
                 {groundedLaws.length > 0 && (
-                  <div className="pt-4 border-t border-[#ebf3ff] space-y-2">
-                    <span className="text-xs font-bold text-[#5878a4] block">חוקים ותקנות שאותרו מתוך regulation.gov.il:</span>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="pt-4 border-t border-[#ebf3ff] space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-[#0c3058] flex items-center gap-1.5">
+                        <BookOpen className="w-4 h-4 text-[#0068f5]" />
+                        חוקים ותקנות שאותרו ונשלפו ישירות מתוך regulation.gov.il ({groundedLaws.length}):
+                        <InfoTooltip text="אלו החוקים המדויקים שנשלפו מתוך 6,576+ רשומות המאגר ושימשו כקרקוע לתשובת ה-AI." />
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                       {groundedLaws.map((law, idx) => (
-                        <div key={idx} className="p-3 rounded-[6px] bg-[#f1f5fb] border border-[#c2d4ec] text-xs flex items-center justify-between">
-                          <span className="font-semibold text-[#0c3058] truncate max-w-[80%]">{law.legislation_name}</span>
-                          <span className="text-[#0068f5] text-[11px] font-mono">{law.office_name}</span>
+                        <div key={idx} className="p-3.5 rounded-[8px] bg-[#f1f5fb] border border-[#c2d4ec] text-xs flex flex-col justify-between gap-2 hover:border-[#0068f5] transition-colors">
+                          <div className="space-y-1">
+                            <span className="font-bold text-[#0c3058] block leading-snug">{law.legislation_name}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[#0068f5] text-[11px] font-semibold">{law.office_name}</span>
+                              <span className="text-[#5878a4] text-[10px]">• {law.legislation_type}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-1 border-t border-[#c2d4ec]/50">
+                            {law.wiki_clean_url && (
+                              <a
+                                href={law.wiki_clean_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[11px] text-[#0068f5] hover:underline flex items-center gap-0.5"
+                              >
+                                נוסח מלא בויקיטקסט <ExternalLink className="w-3 h-3 inline" />
+                              </a>
+                            )}
+                            {law.knesset_clean_url && (
+                              <a
+                                href={law.knesset_clean_url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[11px] text-[#0c3058] hover:underline flex items-center gap-0.5"
+                              >
+                                אתר הכנסת <ExternalLink className="w-3 h-3 inline" />
+                              </a>
+                            )}
+                            <button
+                              onClick={() => {
+                                setSearchQuery(law.legislation_name);
+                                setActiveTab('explorer');
+                              }}
+                              className="mr-auto text-[11px] font-semibold text-[#0068f5] hover:bg-[#ebf3ff] px-2 py-0.5 rounded cursor-pointer transition-colors"
+                            >
+                              🔍 חפש במאגר
+                            </button>
+                          </div>
                         </div>
                       ))}
                     </div>

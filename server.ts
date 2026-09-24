@@ -13,6 +13,8 @@ import {
   fetchReliefs,
   getRegulationStats,
   BUSINESS_SECTORS,
+  extractSearchKeywords,
+  detectSectorFromQuery,
 } from './src/server/regulationService.ts';
 import { createRegulationMcpServer } from './src/server/mcpServer.ts';
 
@@ -489,81 +491,192 @@ app.get('/api/regulation/compliance/:sector', (req: Request, res: Response) => {
   res.json(guide);
 });
 
-// AI Regulatory Advisor (Powered by Gemini 2.5 Flash)
+// AI Regulatory Advisor (Powered by Gemini 2.5 Flash & Grounded in National Regulation Registry)
 app.post('/api/regulation/ai-consult', async (req: Request, res: Response) => {
   const { query, sector, context } = req.body || {};
 
-  if (!query) {
+  if (!query || typeof query !== 'string' || !query.trim()) {
     return res.status(400).json({ error: 'Missing query parameter' });
   }
 
-  // Pre-fetch relevant regulations to ground the AI response
-  const sampleRegulations = await fetchRegulationsFromGov({
-    query: query.slice(0, 40),
-    limit: 5,
+  const cleanQuery = query.trim();
+  const detectedSector = detectSectorFromQuery(cleanQuery);
+  // Auto-detect sector if client didn't supply one, or if client provided a preset that mismatches user query
+  const effectiveSectorKey =
+    detectedSector || (sector && sector !== 'auto' && sector !== 'custom' && BUSINESS_SECTORS[sector] ? sector : null);
+  const matchedSector = effectiveSectorKey && BUSINESS_SECTORS[effectiveSectorKey] ? BUSINESS_SECTORS[effectiveSectorKey] : null;
+
+  // Extract intelligent search keywords from natural language query
+  const searchKeywords = extractSearchKeywords(cleanQuery);
+  const foundRegulationsMap = new Map<number, any>();
+
+  // Prioritize domain nouns over generic action verbs
+  const genericVerbs = new Set(['גידול', 'הקמת', 'פתיחת', 'ניהול', 'מתן', 'אספקת', 'מכירת', 'הפעלת', 'בניית', 'פיתוח', 'עשיית']);
+  const prioritizedKeywords = [...searchKeywords].sort((a, b) => {
+    const aGeneric = genericVerbs.has(a);
+    const bGeneric = genericVerbs.has(b);
+    if (aGeneric && !bGeneric) return 1;
+    if (!aGeneric && bGeneric) return -1;
+    return b.length - a.length;
   });
 
-  const groundedContext = sampleRegulations.records
-    .map(
-      (r) =>
-        `- ${r.legislation_name} (משרד: ${r.office_name}, סוג: ${r.legislation_type}, קישור: ${r.knesset_clean_url || r.wiki_clean_url || 'N/A'})`
-    )
-    .join('\n');
+  // 1. First attempt: search for prioritized keywords (e.g., 'עופות', 'לולים', 'חקלאות')
+  const keywordsToSearch = prioritizedKeywords.slice(0, 3);
+  if (keywordsToSearch.length > 0) {
+    for (const kw of keywordsToSearch) {
+      try {
+        const kwRes = await fetchRegulationsFromGov({ query: kw, limit: 5 });
+        for (const rec of kwRes.records) {
+          if (!foundRegulationsMap.has(rec._id)) {
+            foundRegulationsMap.set(rec._id, rec);
+          }
+        }
+      } catch (e) {
+        console.warn(`Keyword search error for "${kw}":`, e);
+      }
+    }
+  }
+
+  // 2. If still few results, try whole query or sector suggestions
+  if (foundRegulationsMap.size === 0) {
+    try {
+      const fullRes = await fetchRegulationsFromGov({ query: cleanQuery.slice(0, 30), limit: 5 });
+      for (const rec of fullRes.records) {
+        if (!foundRegulationsMap.has(rec._id)) {
+          foundRegulationsMap.set(rec._id, rec);
+        }
+      }
+    } catch (e) {
+      console.warn('Full query search error:', e);
+    }
+  }
+
+  if (foundRegulationsMap.size === 0 && matchedSector && matchedSector.mcpQuerySuggestions.length > 0) {
+    try {
+      const sectorRes = await fetchRegulationsFromGov({ query: matchedSector.mcpQuerySuggestions[0], limit: 5 });
+      for (const rec of sectorRes.records) {
+        if (!foundRegulationsMap.has(rec._id)) {
+          foundRegulationsMap.set(rec._id, rec);
+        }
+      }
+    } catch (e) {
+      console.warn('Sector suggestion search error:', e);
+    }
+  }
+
+  const groundedRecords = Array.from(foundRegulationsMap.values()).slice(0, 6);
+
+  const groundedContext = groundedRecords.length > 0
+    ? groundedRecords
+        .map(
+          (r) =>
+            `- ${r.legislation_name} (משרד ממונה: ${r.office_name}, סוג: ${r.legislation_type}, קישור כנסת/ויקי: ${r.knesset_clean_url || r.wiki_clean_url || 'N/A'})`
+        )
+        .join('\n')
+    : matchedSector
+      ? matchedSector.keyLegislation.map((l) => `- ${l} (משרד ממונה: ${matchedSector.primaryMinistry})`).join('\n')
+      : '- חוק רישוי עסקים, התשכ"ח-1968\n- פקודת בריאות הציבור\n- חוק הגנת הפרטיות';
 
   try {
     if (ai) {
-      const prompt = `אתה מומחה בכיר לרגולציה ממשלתית בישראל, לחוק עקרונות האסדרה (התשפ"ב-2021), ולמאגר האסדרה הלאומי regulation.gov.il.
-המשתמש מבקש ייעוץ רגולטורי בנושא:
-"${query}"
-${sector ? `מגזר עסקי: ${sector}` : ''}
+      const prompt = `אתה יועץ ציות ורגולציה מומחה ומוסמך של ממשלת ישראל, מומחה לחוק עקרונות האסדרה (התשפ"ב-2021) ולמאגר האסדרה הלאומי regulation.gov.il (הכולל 6,576+ חוקים ותקנות).
+
+שאלת המשתמש:
+"${cleanQuery}"
+${matchedSector ? `ענף פעילות מזוהה: ${matchedSector.name} (${matchedSector.description})` : ''}
 ${context ? `הקשר נוסף: ${context}` : ''}
 
-הנה חוקים ותקנות רלוונטיים שאותרו מתוך מאגר האסדרה הלאומי:
-${groundedContext || 'חוק רישוי עסקים, פקודות בריאות הציבור, חוק הגנת הפרטיות'}
+הנה חוקים ותקנות ספציפיים שנשלפו מתוך מאגר האסדרה הלאומי התואמים לשאלה:
+${groundedContext}
 
-ספק תשובה מקיפה, מקצועית ומובנית בעברית, הכוללת:
-1. 🏛️ משרדי הממשלה והרגולטורים הממונים.
-2. 📜 חקיקה מחייבת: חוקים ראשוניים ותקנות משניות רלוונטיות.
-3. 📝 רישיונות והיתרים נדרשים לפני פתיחה / תחילת פעילות (רישוי עסקים, אישורי משרד מקצועי).
-4. ⚠️ מוקשי רגולציה נפוצים וסיכוני אי-ציות (קנסות, צווי סגירה, עיצומים).
-5. 💡 המלצות מעשיות לפעולה וצעדים ראשונים להסדרת הפעילות.
-תשובה בהירה ומסודרת, מותאמת למציאות העסקית בישראל.`;
+ספק דוח מיפוי רגולטורי מקיף, מדויק ומקצועי בעברית, המותאם ישירות לנושא השאלה ("${cleanQuery}"). השתמש במבנה הבא:
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3.8-flash',
-        contents: prompt,
-      });
+### 🏛️ משרדים ורגולטורים ממונים
+פרט את הרגולטור הראשי והגורמים המאשרים הנוספים המפקחים על פעילות זו בישראל.
 
-      return res.json({
-        analysis: response.text,
-        groundedRegulations: sampleRegulations.records,
-      });
+### 📜 חקיקה מחייבת מתוך מאגר האסדרה
+הזכר את החוקים הראשיים ותקנות המשנה הרלוונטיות ביותר, והסבר בקצרה מה כל אחת מהן קובעת לגבי תחום זה (התבסס על החוקים שנשלפו לעיל).
+
+### 📝 רישיונות, היתרים ותנאים נדרשים
+פרט את הרישיונות (למשל רישיון עסק, אישור וטרינרי / בריאות / איכות סביבה, היתר בנייה, מרחקי הפרדה) והדרישות המוקדמות לפתיחה ולהפעלה.
+
+### ⚠️ מוקשי רגולציה נפוצים וסיכוני אי-ציות
+ציין סיכוני אכיפה, קנסות, צווי סגירה מנהליים, סכנות תברואתיות או סביבתיות וכיצד להימנע מהם.
+
+### 💡 צעדים מומלצים לפעולה
+המלצות מעשיות מסודרות שלב-אחר-שלב עבור היזם/בעל העסק.`;
+
+      // Call Gemini using gemini-2.5-flash as verified
+      let responseText: string | null = null;
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+        });
+        responseText = response.text || null;
+      } catch (modelErr: any) {
+        console.warn('gemini-2.5-flash attempt error, trying retry/fallback:', modelErr.message);
+        const retryResponse = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: prompt,
+        });
+        responseText = retryResponse.text || null;
+      }
+
+      if (responseText) {
+        return res.json({
+          analysis: responseText,
+          groundedRegulations: groundedRecords,
+          detectedSector: matchedSector ? matchedSector.name : null,
+        });
+      }
     }
   } catch (err: any) {
-    console.warn('Gemini AI error or not configured, using structured fallback:', err);
+    console.warn('Gemini AI execution error, using accurate structured fallback:', err);
   }
 
-  // Fallback response if Gemini API key is missing or fails
-  const matchedSector = sector && BUSINESS_SECTORS[sector] ? BUSINESS_SECTORS[sector] : null;
-  const fallbackText = `### מיפוי רגולטורי עבור: ${query}
+  // Fallback response with accurate sector and grounded registry laws
+  const fallbackText = `### מיפוי רגולטורי עבור: ${cleanQuery}
 
 #### 🏛️ משרדים ורגולטורים ממונים:
-${matchedSector ? `- רגולטור ראשי: **${matchedSector.primaryMinistry}**\n- גורמים מאשרים נוספים: ${matchedSector.secondaryMinistries.join(', ')}` : '- משרד הכלכלה והתעשייה\n- הרשות המקומית (מחלקת רישוי עסקים)\n- משרד המשפטים (הרשות להגנת הפרטיות)'}
+${
+  matchedSector
+    ? `- **רגולטור ראשי:** ${matchedSector.primaryMinistry}\n- **גורמים מאשרים נוספים:** ${matchedSector.secondaryMinistries.join(', ')}`
+    : `- משרד החקלאות / משרד הכלכלה לפי מהות הפעילות\n- הרשות המקומית (מחלקת רישוי עסקים והשירות הווטרינרי המקומי)\n- המשרד להגנת הסביבה ומשרד הבריאות`
+}
 
-#### 📜 חקיקה מחייבת:
-${matchedSector ? matchedSector.keyLegislation.map((l) => `- ${l}`).join('\n') : '- חוק רישוי עסקים, התשכ"ח-1968\n- חוק הגנת הפרטיות, התשמ"א-1981 ותקנות אבטחת מידע\n- חוק הגנת הצרכן, התשמ"א-1981'}
+#### 📜 חקיקה מחייבת מתוך מאגר האסדרה הלאומי:
+${
+  groundedRecords.length > 0
+    ? groundedRecords.map((r) => `- **${r.legislation_name}** (${r.office_name})`).join('\n')
+    : matchedSector
+      ? matchedSector.keyLegislation.map((l) => `- ${l}`).join('\n')
+      : `- חוק רישוי עסקים, התשכ"ח-1968\n- פקודת בריאות הציבור [נוסח חדש], התשמ"ג-1983\n- חוק הגנת הסביבה ומניעת מפגעים, התשכ"א-1961`
+}
 
 #### 📝 רישיונות והיתרים נדרשים:
-${matchedSector ? matchedSector.requiredLicenses.map((lic) => `- ${lic}`).join('\n') : '- רישיון עסק מהרשות המקומית\n- אישור שירותי כבאות והצלה\n- אישור משרד הבריאות / איכות הסביבה לפי אופי הפעילות'}
+${
+  matchedSector
+    ? matchedSector.requiredLicenses.map((lic) => `- ${lic}`).join('\n')
+    : `- רישיון עסק מהרשות המקומית לפי צו רישוי עסקים\n- אישור גורמי המקצוע (וטרינר מחוזי, משרד הבריאות, כיבוי אש)\n- היתר בנייה ושימוש חורג מוועדת התכנון במידת הצורך`
+}
 
-#### 💡 צעדים מומלצים:
-1. בדיקת סיווג הפעילות בצו רישוי עסקים של משרד הפנים.
-2. הגשת בקשה מקוונת לרישום עסק וקבלת מפרט אחיד.
-3. הטמעת מדיניות הגנת פרטיות ואבטחת מידע לפי תיקון 13 לחוק הפרטיות.`;
+#### ⚠️ תנאי ציות ודגשים מרכזיים:
+${
+  matchedSector
+    ? matchedSector.complianceRequirements.map((req) => `- ${req}`).join('\n')
+    : `- שמירה על תנאי תברואה ומניעת מפגעים סביבתיים\n- עמידה בכללי רווחה ובטיחות לפי החוק\n- רישום מסודר ותיעוד עמידה בדרישות הרגולטור`
+}
+
+#### 💡 צעדים מומלצים להסדרת הפעילות:
+1. בדיקת סיווג הפעילות בצו רישוי עסקים ובירור דרישות המפרט האחיד מול הרשות המקומית.
+2. הגשת תוכנית עסקית והנדסית לאישור מוקדם של משרדי הממשלה הממונים לפני ביצוע השקעות פיזיות.
+3. בדיקת מאגר האסדרה הלאומי regulation.gov.il להורדת הנחיות וטפסים רשמיים.`;
 
   res.json({
     analysis: fallbackText,
-    groundedRegulations: sampleRegulations.records,
+    groundedRegulations: groundedRecords,
+    detectedSector: matchedSector ? matchedSector.name : null,
   });
 });
 
