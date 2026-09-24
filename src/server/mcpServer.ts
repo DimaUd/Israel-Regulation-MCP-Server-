@@ -9,6 +9,9 @@ import { z } from 'zod';
 import {
   fetchRegulationsFromGov,
   getRegulationById,
+  getRawRegulationById,
+  getRegistrySchemaInfo,
+  REGISTRY_SCHEMA_FIELDS,
   fetchReliefs,
   getRegulationStats,
   BUSINESS_SECTORS,
@@ -24,7 +27,7 @@ export function createRegulationMcpServer() {
   // TOOL 1: search_regulations
   server.tool(
     'search_regulations',
-    'חפש חוקים, תקנות, צווים ונהלים במאגר האסדרה הלאומי של ישראל (regulation.gov.il / data.gov.il). תומך בסינון לפי מילות מפתח, משרד ממשלתי, סוג חקיקה ותגיות.',
+    'חפש חוקים, תקנות, צווים ונהלים במאגר האסדרה הלאומי של ישראל (regulation.gov.il / data.gov.il). תומך בחיפוש מילות מפתח, סינון משרד, רובד חקיקה, חוק מסמיך, דפדוף עמוק (עד 6,576+ רשומות) ושליית כל פרט.',
     {
       query: z
         .string()
@@ -38,31 +41,69 @@ export function createRegulationMcpServer() {
         .string()
         .optional()
         .describe('סוג החקיקה: "חקיקה ראשית" (חוקי כנסת) או "חקיקת משנה" (תקנות, צווים וכללים)'),
+      is_regulation: z
+        .enum(['כן', 'לא'])
+        .optional()
+        .describe('האם החוק מהווה אסדרה עסקית ישירה ("כן" או "לא")'),
+      authorizing_law: z
+        .string()
+        .optional()
+        .describe('סינון לפי שם החוק המסמיך (למשל: "חוק רישוי עסקים", "חוק הטיס")'),
+      knesset_id: z
+        .string()
+        .optional()
+        .describe('מזהה החוק במאגר הכנסת (למשל: "2000128")'),
       tag: z
         .string()
         .optional()
         .describe('תגית נושאית (למשל: "רישוי עסקים", "בטיחות", "איכות הסביבה", "בריאות הציבור", "בנקאות וכספים", "ייבוא", "פרטיות")'),
+      sort: z
+        .string()
+        .optional()
+        .describe('מיון לפי שדה (למשל: "_id asc", "last_update desc", "publication_date desc")'),
       limit: z
         .number()
         .min(1)
-        .max(50)
+        .max(100)
         .optional()
-        .describe('מספר התוצאות המקסימלי להחזרה (ברירת מחדל: 10, מקסימום: 50)'),
+        .describe('מספר התוצאות המקסימלי להחזרה (ברירת מחדל: 10, מקסימום: 100)'),
       offset: z
         .number()
         .min(0)
+        .max(7000)
         .optional()
-        .describe('היסט תוצאות לדפדוף (ברירת מחדל: 0)'),
+        .describe('היסט תוצאות לדפדוף עמוק במאגר (ברירת מחדל: 0)'),
+      include_raw: z
+        .boolean()
+        .optional()
+        .describe('האם לכלול את רשומת ה-JSON הגולמית המלאה מ-data.gov.il כולל כל השדות המקוריים'),
     },
-    async ({ query, office_name, legislation_type, tag, limit = 10, offset = 0 }) => {
+    async ({
+      query,
+      office_name,
+      legislation_type,
+      is_regulation,
+      authorizing_law,
+      knesset_id,
+      tag,
+      sort,
+      limit = 10,
+      offset = 0,
+      include_raw = false,
+    }) => {
       try {
         const { records, total } = await fetchRegulationsFromGov({
           query,
           officeName: office_name,
           legislationType: legislation_type,
+          isRegulation: is_regulation,
+          authorizingLaw: authorizing_law,
+          knessetId: knesset_id,
           tag,
+          sort,
           limit,
           offset,
+          includeRaw: include_raw,
         });
 
         const formatted = records.map((r) => ({
@@ -74,16 +115,28 @@ export function createRegulationMcpServer() {
           authorizing_law: r.primary_authorizing_legislation || 'לא צוין',
           publication_date: r.publication_date || '',
           last_update: r.last_update || '',
+          primary_law_knesset_id: r.primary_law_knesset_id || '',
           tags: r.tags_list || [],
           knesset_url: r.knesset_clean_url || '',
           wikisource_url: r.wiki_clean_url || '',
+          ...(include_raw && r.raw ? { raw_data_gov_record: r.raw } : {}),
         }));
 
         const resultPayload = {
           source: 'https://regulation.gov.il/ (מאגר האסדרה הלאומי)',
-          total_matches: total,
+          total_matches_in_database: total,
           returned_records: formatted.length,
-          query_applied: { query, office_name, legislation_type, tag, limit, offset },
+          pagination: { limit, offset, has_more: offset + limit < total },
+          query_applied: {
+            query,
+            office_name,
+            legislation_type,
+            is_regulation,
+            authorizing_law,
+            knesset_id,
+            tag,
+            sort,
+          },
           regulations: formatted,
         };
 
@@ -104,6 +157,64 @@ export function createRegulationMcpServer() {
               text: `שגיאה בשליפת חקיקה ממאגר האסדרה: ${err.message || String(err)}`,
             },
           ],
+        };
+      }
+    }
+  );
+
+  // TOOL: inspect_registry_schema
+  server.tool(
+    'inspect_registry_schema',
+    'הצגת מפרט הסכמה המלא של מאגר האסדרה הלאומי: כל 12 השדות, סוגי הנתונים, תיאורים מפורטים, וערכי דוגמה להבטחת כיסוי 100% של כל פרט במאגר.',
+    {},
+    async () => {
+      try {
+        const schema = getRegistrySchemaInfo();
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(schema, null, 2),
+            },
+          ],
+        };
+      } catch (err: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `שגיאה בשליפת סכמת המאגר: ${err.message}` }],
+        };
+      }
+    }
+  );
+
+  // TOOL: get_regulation_raw
+  server.tool(
+    'get_regulation_raw',
+    'קבלת רשומת JSON הגולמית המקורית מ-data.gov.il לפי ID (ללא שום עיבוד או פילטור)',
+    {
+      id: z.union([z.number(), z.string()]).describe('מזהה הרשומה (1 עד 6,576)'),
+    },
+    async ({ id }) => {
+      try {
+        const raw = await getRawRegulationById(id);
+        if (!raw) {
+          return {
+            isError: true,
+            content: [{ type: 'text', text: `רשומה גולמית עם מזהה ${id} לא נמצאה.` }],
+          };
+        }
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(raw, null, 2),
+            },
+          ],
+        };
+      } catch (err: any) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `שגיאה: ${err.message}` }],
         };
       }
     }

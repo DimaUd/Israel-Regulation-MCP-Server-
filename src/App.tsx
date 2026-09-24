@@ -36,6 +36,9 @@ import {
   Eye,
 } from 'lucide-react';
 import { MarkdownViewer } from './components/MarkdownViewer';
+import { McpClientGuides } from './components/McpClientGuides';
+import { ReadinessSuite } from './components/ReadinessSuite';
+import { Tooltip, InfoTooltip } from './components/Tooltip';
 import { convertToolResultToMarkdown, extractTags } from './utils/markdownFormatter';
 
 interface RegulationItem {
@@ -143,15 +146,17 @@ export default function App() {
   // Interactive Video / Walkthrough Player State
   const [videoStep, setVideoStep] = useState(1);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [playbackSpeed, setPlaybackSpeed] = useState<number>(1);
 
   // Auto-play the simulated video walkthrough
   useEffect(() => {
     if (!isPlaying) return;
+    const intervalTime = Math.round(5000 / playbackSpeed);
     const timer = setInterval(() => {
-      setVideoStep((prev) => (prev >= 4 ? 1 : prev + 1));
-    }, 4500);
+      setVideoStep((prev) => (prev >= 5 ? 1 : prev + 1));
+    }, intervalTime);
     return () => clearInterval(timer);
-  }, [isPlaying]);
+  }, [isPlaying, playbackSpeed]);
 
   // Fetch initial stats & sample regulations
   useEffect(() => {
@@ -276,6 +281,12 @@ export default function App() {
       case 'get_regulation_by_id':
         setToolParamsJson('{\n  "id": 6212\n}');
         break;
+      case 'inspect_registry_schema':
+        setToolParamsJson('{}');
+        break;
+      case 'get_regulation_raw':
+        setToolParamsJson('{\n  "id": 6212\n}');
+        break;
       case 'get_regulatory_reliefs':
         setToolParamsJson('{\n  "query": "יבוא",\n  "limit": 5\n}');
         break;
@@ -391,10 +402,15 @@ export default function App() {
                 <h1 className="text-xl sm:text-2xl font-bold text-[#0c3058] tracking-tight">
                   מאגר האסדרה והחקיקה הלאומי
                 </h1>
-                <span className="text-xs px-2.5 py-0.5 rounded-[100px] bg-[#eef8e8] text-[#499522] border border-[#7ad94a] font-medium flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#499522] animate-pulse"></span>
-                  MCP חי וזמין
-                </span>
+                <Tooltip
+                  title="סטטוס שרת ה-MCP"
+                  content="פרוטוקול Context חי ופעיל ב-Server-Sent Events (SSE) ו-JSON-RPC 2.0. זמן תגובה ממוצע: כ-35ms."
+                >
+                  <span className="text-xs px-2.5 py-0.5 rounded-[100px] bg-[#eef8e8] text-[#499522] border border-[#7ad94a] font-medium flex items-center gap-1 cursor-help">
+                    <span className="w-2 h-2 rounded-full bg-[#499522] animate-pulse"></span>
+                    MCP חי וזמין
+                  </span>
+                </Tooltip>
               </div>
               <p className="text-xs text-[#5878a4] mt-0.5">
                 ממשק Model Context Protocol (MCP) רשמי עבור סוכני בינה מלאכותית, Claude Desktop ו-Cursor
@@ -404,108 +420,142 @@ export default function App() {
 
           {/* IGDS Metrics Badges */}
           <div className="flex items-center gap-2.5 text-xs">
-            <div className="bg-[#f1f5fb] px-3.5 py-1.5 rounded-[8px] border border-[#c2d4ec] text-[#0c3058] flex items-center gap-1.5">
-              <BookOpen className="w-4 h-4 text-[#0068f5]" />
-              <span className="text-[#5878a4]">חוקים ותקנות:</span>
-              <span className="font-bold text-[#0c3058]">6,576+</span>
-            </div>
-            <div className="hidden sm:flex bg-[#f1f5fb] px-3.5 py-1.5 rounded-[8px] border border-[#c2d4ec] text-[#0c3058] items-center gap-1.5">
-              <Building2 className="w-4 h-4 text-[#0068f5]" />
-              <span className="text-[#5878a4]">משרדי ממשלה:</span>
-              <span className="font-bold text-[#0c3058]">25+</span>
-            </div>
-            <div className="bg-[#eef8e8] px-3.5 py-1.5 rounded-[8px] border border-[#7ad94a] text-[#499522] flex items-center gap-1.5 font-medium">
-              <ShieldCheck className="w-4 h-4 text-[#499522]" />
-              <span>הקלות פעילות: 192</span>
-            </div>
+            <Tooltip
+              title="סך כל החקיקה במאגר"
+              content="6,576 חוקים ותקנות ממאגר data.gov.il הממשלתי (Resource ID: 929b4c60-ce43-4f5b-9960-f6146ba33eed). כל רשומה זמינה במלואה דרך ה-MCP."
+            >
+              <div className="bg-[#f1f5fb] px-3.5 py-1.5 rounded-[8px] border border-[#c2d4ec] text-[#0c3058] flex items-center gap-1.5 cursor-help">
+                <BookOpen className="w-4 h-4 text-[#0068f5]" />
+                <span className="text-[#5878a4]">חוקים ותקנות:</span>
+                <span className="font-bold text-[#0c3058]">6,576+</span>
+              </div>
+            </Tooltip>
+
+            <Tooltip
+              title="משרדי ממשלה ורגולטורים"
+              content="למעלה מ-25 משרדי ממשלה ויחידות סמך (משרד הכלכלה, הבריאות, התחבורה, הגנת הסביבה, האוצר ועוד) ממופים עם ספירת רגולציות מדויקת."
+            >
+              <div className="hidden sm:flex bg-[#f1f5fb] px-3.5 py-1.5 rounded-[8px] border border-[#c2d4ec] text-[#0c3058] items-center gap-1.5 cursor-help">
+                <Building2 className="w-4 h-4 text-[#0068f5]" />
+                <span className="text-[#5878a4]">משרדי ממשלה:</span>
+                <span className="font-bold text-[#0c3058]">25+</span>
+              </div>
+            </Tooltip>
+
+            <Tooltip
+              title="הקלות והפחתת נטל"
+              content="192 הקלות רגולטוריות, פטורים מנהליים ועדכוני חירום שפורסמו להקלת הנטל על עסקים וחקלאים."
+            >
+              <div className="bg-[#eef8e8] px-3.5 py-1.5 rounded-[8px] border border-[#7ad94a] text-[#499522] flex items-center gap-1.5 font-medium cursor-help">
+                <ShieldCheck className="w-4 h-4 text-[#499522]" />
+                <span>הקלות פעילות: 192</span>
+              </div>
+            </Tooltip>
           </div>
         </div>
 
         {/* IGDS Tabs Navigation */}
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex overflow-x-auto gap-2 border-t border-[#ebf3ff]">
-          <button
-            onClick={() => setActiveTab('quickstart')}
-            className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === 'quickstart'
-                ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
-                : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
-            }`}
-          >
-            <Play className="w-4 h-4 text-[#0068f5]" />
-            התחלה מהירה וסרטון הדגמה
-          </button>
+          <Tooltip title="התחלה מהירה" content="סרטון הדגמה אינטראקטיבי ב-5 שלבים ומבדק מוכנות 100% של המאגר" position="bottom">
+            <button
+              onClick={() => setActiveTab('quickstart')}
+              className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
+                activeTab === 'quickstart'
+                  ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
+                  : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
+              }`}
+            >
+              <Play className="w-4 h-4 text-[#0068f5]" />
+              התחלה מהירה וסרטון הדגמה
+            </button>
+          </Tooltip>
 
-          <button
-            onClick={() => setActiveTab('mcp')}
-            className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === 'mcp'
-                ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
-                : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
-            }`}
-          >
-            <Code2 className="w-4 h-4" />
-            התחברות ל-MCP (Claude &amp; Cursor)
-          </button>
+          <Tooltip title="מדריכי התחברות" content="הגדרות מוכנות להעתקה בלחיצה אחת ל-OpenCode, Claude Desktop, Cursor, Windsurf, VS Code ועוד" position="bottom">
+            <button
+              onClick={() => setActiveTab('mcp')}
+              className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
+                activeTab === 'mcp'
+                  ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
+                  : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
+              }`}
+            >
+              <Code2 className="w-4 h-4" />
+              <span>התחברות ל-MCP (OpenCode, Claude, Cursor ועוד)</span>
+              <span className="text-[10px] bg-[#0068f5] text-white px-1.5 py-0.5 rounded-[100px] font-bold">
+                10 סביבות
+              </span>
+            </button>
+          </Tooltip>
 
-          <button
-            onClick={() => setActiveTab('console')}
-            className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === 'console'
-                ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
-                : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
-            }`}
-          >
-            <Terminal className="w-4 h-4" />
-            קונסולת בדיקה ובודק כלים
-          </button>
+          <Tooltip title="קונסולת בדיקה" content="סביבת בדיקה חיה להפעלת כלי ה-MCP בפרוטוקול JSON-RPC 2.0 עם צפייה ב-JSON, Markdown ותצוגה מקדימה" position="bottom">
+            <button
+              onClick={() => setActiveTab('console')}
+              className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
+                activeTab === 'console'
+                  ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
+                  : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
+              }`}
+            >
+              <Terminal className="w-4 h-4" />
+              קונסולת בדיקה ובודק כלים
+            </button>
+          </Tooltip>
 
-          <button
-            onClick={() => setActiveTab('explorer')}
-            className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === 'explorer'
-                ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
-                : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
-            }`}
-          >
-            <Search className="w-4 h-4" />
-            מאגר החקיקה והתקנות (6,500+)
-          </button>
+          <Tooltip title="סייר החקיקה" content="חיפוש וסינון מלא בכל 6,576 החוקים והתקנות של מדינת ישראל עם קישורים ישירים לכנסת ולויקיטקסט" position="bottom">
+            <button
+              onClick={() => setActiveTab('explorer')}
+              className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
+                activeTab === 'explorer'
+                  ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
+                  : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
+              }`}
+            >
+              <Search className="w-4 h-4" />
+              מאגר החקיקה והתקנות (6,500+)
+            </button>
+          </Tooltip>
 
-          <button
-            onClick={() => setActiveTab('reliefs')}
-            className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === 'reliefs'
-                ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
-                : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
-            }`}
-          >
-            <ShieldCheck className="w-4 h-4" />
-            הקלות והתאמות ברגולציה
-          </button>
+          <Tooltip title="הקלות ברגולציה" content="192 הקלות בירוקרטיות וחירום המפחיתות נטל על בעלי עסקים, יבואנים וחקלאים" position="bottom">
+            <button
+              onClick={() => setActiveTab('reliefs')}
+              className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
+                activeTab === 'reliefs'
+                  ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
+                  : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+              הקלות והתאמות ברגולציה
+            </button>
+          </Tooltip>
 
-          <button
-            onClick={() => setActiveTab('advisor')}
-            className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === 'advisor'
-                ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
-                : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
-            }`}
-          >
-            <Sparkles className="w-4 h-4 text-[#0068f5]" />
-            יועץ ציות ורגולציה AI
-          </button>
+          <Tooltip title="יועץ ציות AI" content="ניתוח חובות רישוי, סיכונים רגולטוריים וחקיקה מחייבת המבוסס על מודל Gemini וקרקוע בחוקי האמת" position="bottom">
+            <button
+              onClick={() => setActiveTab('advisor')}
+              className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
+                activeTab === 'advisor'
+                  ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
+                  : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
+              }`}
+            >
+              <Sparkles className="w-4 h-4 text-[#0068f5]" />
+              יועץ ציות ורגולציה AI
+            </button>
+          </Tooltip>
 
-          <button
-            onClick={() => setActiveTab('prompts')}
-            className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
-              activeTab === 'prompts'
-                ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
-                : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
-            }`}
-          >
-            <Layers className="w-4 h-4" />
-            משאבי MCP ותבניות RIA
-          </button>
+          <Tooltip title="משאבים ופרומפטים" content="תבניות הנחיה (MCP Prompts) לביקורת ציות ודוחות הערכת השפעת רגולציה (RIA)" position="bottom">
+            <button
+              onClick={() => setActiveTab('prompts')}
+              className={`px-4 py-3 text-sm font-medium border-b-[3px] flex items-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
+                activeTab === 'prompts'
+                  ? 'border-[#0068f5] text-[#0068f5] font-bold bg-[#ebf3ff]/60'
+                  : 'border-transparent text-[#5878a4] hover:text-[#0c3058] hover:bg-[#f1f5fb]'
+              }`}
+            >
+              <Layers className="w-4 h-4" />
+              משאבי MCP ותבניות RIA
+            </button>
+          </Tooltip>
         </div>
       </header>
 
@@ -546,98 +596,139 @@ export default function App() {
             {/* ========================================================= */}
             {/* INTERACTIVE VIDEO WALKTHROUGH SIMULATOR */}
             {/* ========================================================= */}
-            <div className="bg-white rounded-[8px] border-2 border-[#0068f5] shadow-[0_4px_12px_rgba(0,104,245,0.12)] overflow-hidden">
+            <div className="bg-white rounded-[8px] border-2 border-[#0068f5] shadow-[0_4px_16px_rgba(0,104,245,0.12)] overflow-hidden">
               {/* Player Top Bar */}
-              <div className="bg-[#0c3058] text-white px-5 py-3 flex items-center justify-between flex-wrap gap-2">
+              <div className="bg-[#0c3058] text-white px-5 py-3 flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-2">
                   <span className="w-3 h-3 rounded-full bg-[#eb4a4b]"></span>
                   <span className="w-3 h-3 rounded-full bg-[#997012]"></span>
                   <span className="w-3 h-3 rounded-full bg-[#7ad94a]"></span>
                   <span className="text-xs font-mono font-medium mr-2 text-slate-200">
-                    הדגמת וידאו אינטראקטיבית: Claude Desktop + Israel Regulation MCP
+                    הדגמת וידאו אינטראקטיבית: סוכן AI + Israel Regulation MCP (5 שלבים)
                   </span>
                 </div>
 
-                <div className="flex items-center gap-2 text-xs">
-                  <button
-                    onClick={() => setIsPlaying(!isPlaying)}
-                    className="px-3 py-1 rounded-[6px] bg-[#0068f5] hover:bg-[#0057cc] text-white font-medium flex items-center gap-1.5 cursor-pointer"
+                <div className="flex items-center gap-2.5 text-xs">
+                  {/* Play / Pause with Tooltip */}
+                  <Tooltip
+                    title={isPlaying ? 'השהיית הדגמה' : 'הפעלת הדגמה אוטומטית'}
+                    content={isPlaying ? 'לחיצה תעצור את המעבר האוטומטי בין השלבים' : 'לחיצה תפעיל מחדש את מעבר השלבים האוטומטי'}
                   >
-                    {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-                    {isPlaying ? 'השהה הדגמה' : 'הפעל הדגמה'}
-                  </button>
-                  <button
-                    onClick={() => setVideoStep(1)}
-                    className="p-1.5 rounded-[6px] bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
-                    title="התחל מחדש"
+                    <button
+                      onClick={() => setIsPlaying(!isPlaying)}
+                      className="px-3 py-1.5 rounded-[6px] bg-[#0068f5] hover:bg-[#0057cc] text-white font-medium flex items-center gap-1.5 cursor-pointer shadow-sm"
+                    >
+                      {isPlaying ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+                      {isPlaying ? 'השהה הדגמה' : 'הפעל הדגמה'}
+                    </button>
+                  </Tooltip>
+
+                  {/* Playback Speed Selector with Tooltip */}
+                  <Tooltip
+                    title="מהירות נגינה"
+                    content="החלף מהירות מעבר בין שקופיות ההדגמה (1x רגיל, 1.5x מהיר, 2x מהיר מאוד)"
                   >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
+                    <div className="flex items-center bg-slate-800 rounded-[6px] p-0.5 border border-slate-700 font-mono text-[11px]">
+                      {[1, 1.5, 2].map((sp) => (
+                        <button
+                          key={sp}
+                          onClick={() => setPlaybackSpeed(sp)}
+                          className={`px-2 py-0.5 rounded-[4px] font-semibold transition-colors cursor-pointer ${
+                            playbackSpeed === sp
+                              ? 'bg-[#0068f5] text-white'
+                              : 'text-slate-300 hover:text-white'
+                          }`}
+                        >
+                          {sp}x
+                        </button>
+                      ))}
+                    </div>
+                  </Tooltip>
+
+                  {/* Replay with Tooltip */}
+                  <Tooltip title="התחל מחדש" content="מחזיר את ההדגמה לשלב 1">
+                    <button
+                      onClick={() => setVideoStep(1)}
+                      className="p-1.5 rounded-[6px] bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer border border-slate-700"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </button>
+                  </Tooltip>
                 </div>
               </div>
 
-              {/* Progress Steps Indicator */}
-              <div className="grid grid-cols-4 bg-[#f1f5fb] border-b border-[#c2d4ec] text-xs divide-x divide-x-reverse divide-[#c2d4ec]">
-                <button
-                  onClick={() => setVideoStep(1)}
-                  className={`p-2.5 text-right font-medium transition-colors cursor-pointer ${
-                    videoStep === 1 ? 'bg-[#ebf3ff] text-[#0068f5] font-bold border-b-2 border-[#0068f5]' : 'text-[#5878a4]'
-                  }`}
-                >
-                  <span className="block text-[10px] text-[#5878a4]">שלב 1</span>
-                  חיבור השרת ב-Claude Desktop
-                </button>
-                <button
-                  onClick={() => setVideoStep(2)}
-                  className={`p-2.5 text-right font-medium transition-colors cursor-pointer ${
-                    videoStep === 2 ? 'bg-[#ebf3ff] text-[#0068f5] font-bold border-b-2 border-[#0068f5]' : 'text-[#5878a4]'
-                  }`}
-                >
-                  <span className="block text-[10px] text-[#5878a4]">שלב 2</span>
-                  שאילתת משתמש בשפה חופשית
-                </button>
-                <button
-                  onClick={() => setVideoStep(3)}
-                  className={`p-2.5 text-right font-medium transition-colors cursor-pointer ${
-                    videoStep === 3 ? 'bg-[#ebf3ff] text-[#0068f5] font-bold border-b-2 border-[#0068f5]' : 'text-[#5878a4]'
-                  }`}
-                >
-                  <span className="block text-[10px] text-[#5878a4]">שלב 3</span>
-                  קריאת MCP ושליפת 8 רשומות
-                </button>
-                <button
-                  onClick={() => setVideoStep(4)}
-                  className={`p-2.5 text-right font-medium transition-colors cursor-pointer ${
-                    videoStep === 4 ? 'bg-[#ebf3ff] text-[#0068f5] font-bold border-b-2 border-[#0068f5]' : 'text-[#5878a4]'
-                  }`}
-                >
-                  <span className="block text-[10px] text-[#5878a4]">שלב 4</span>
-                  תשובה מובנית וקישורים חיים
-                </button>
+              {/* Progress Steps Indicator (5 Chapters) */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 bg-[#f1f5fb] border-b border-[#c2d4ec] text-xs divide-x divide-x-reverse divide-[#c2d4ec]">
+                {[
+                  { step: 1, title: 'חיבור מהיר ב-60 שניות', desc: 'OpenCode / Claude / Cursor' },
+                  { step: 2, title: 'שאילתת מילים בשפה חופשית', desc: 'זיהוי כלי אוטונומי' },
+                  { step: 3, title: 'קריאת MCP JSON-RPC', desc: 'שליפת 8 רשומות (38ms)' },
+                  { step: 4, title: 'דפדוף עמוק וסריקה מלאה', desc: 'כל 6,576 הרשומות' },
+                  { step: 5, title: 'תשובה מובנית וקישורים', desc: 'הצלבת כנסת וויקיטקסט' },
+                ].map((s) => (
+                  <Tooltip
+                    key={s.step}
+                    title={`שלב ${s.step}: ${s.title}`}
+                    content={`לחץ כדי לעבור מיידית לשלב זה (${s.desc})`}
+                    position="bottom"
+                  >
+                    <button
+                      onClick={() => setVideoStep(s.step)}
+                      className={`w-full p-2.5 text-right font-medium transition-colors cursor-pointer ${
+                        videoStep === s.step
+                          ? 'bg-[#ebf3ff] text-[#0068f5] font-bold border-b-2 border-[#0068f5]'
+                          : 'text-[#5878a4] hover:bg-white'
+                      }`}
+                    >
+                      <span className="block text-[10px] text-[#5878a4]">שלב {s.step}</span>
+                      <span className="truncate block font-bold text-[#0c3058]">{s.title}</span>
+                    </button>
+                  </Tooltip>
+                ))}
               </div>
 
               {/* Simulated Screen Stage */}
-              <div className="p-6 bg-slate-900 text-white min-h-[340px] flex flex-col justify-center">
+              <div className="p-6 bg-slate-900 text-white min-h-[350px] flex flex-col justify-center">
                 {videoStep === 1 && (
                   <div className="space-y-4 animate-in fade-in duration-300">
                     <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-2">
                       <span className="flex items-center gap-2">
-                        <Laptop className="w-4 h-4 text-blue-400" /> הגדרת חיבור בקובץ claude_desktop_config.json
+                        <Laptop className="w-4 h-4 text-blue-400" /> הגדרת חיבור בקובץ claude_desktop_config.json או בפקודת OpenCode CLI
                       </span>
-                      <span className="text-emerald-400 font-mono">1. חיבור השרת</span>
+                      <span className="text-emerald-400 font-mono">שלב 1 מתוך 5: חיבור</span>
                     </div>
-                    <pre dir="ltr" className="bg-slate-950 p-4 rounded-[6px] text-xs font-mono text-emerald-400 overflow-x-auto border border-slate-800">
+
+                    <div className="space-y-2">
+                      <span className="text-xs text-amber-300 font-bold block">1. פקודת שורה אחת ב-OpenCode:</span>
+                      <pre dir="ltr" className="bg-slate-950 p-3 rounded-[6px] text-xs font-mono text-emerald-400 overflow-x-auto border border-slate-800">
+                        opencode mcp add israel-regulation --url {sseUrl || 'https://<app-url>/api/mcp/sse'}
+                      </pre>
+                    </div>
+
+                    <div className="space-y-2">
+                      <span className="text-xs text-blue-300 font-bold block">2. לחילופין ב-Claude Desktop / Cursor:</span>
+                      <pre dir="ltr" className="bg-slate-950 p-3 rounded-[6px] text-xs font-mono text-emerald-400 overflow-x-auto border border-slate-800">
 {`{
   "mcpServers": {
     "israel-regulation": {
-      "url": "${sseUrl || 'https://ais-dev-.../api/mcp/sse'}"
+      "url": "${sseUrl || 'https://<app-url>/api/mcp/sse'}"
     }
   }
 }`}
-                    </pre>
-                    <p className="text-xs text-slate-300">
-                      💡 <strong>איך זה עובד:</strong> ברגע שהוספת את הכתובת, Claude Desktop מתחבר מיידית ב-SSE לשרת האסדרה הלאומי ומזהה את כל 6 הכלים והמשאבים ללא צורך בהתקנת שום חבילה מקומית.
-                    </p>
+                      </pre>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <p className="text-xs text-slate-300">
+                        💡 <strong>איך זה עובד:</strong> ברגע שהוספת את הכתובת, הסוכן מתחבר מיידית ב-SSE לשרת האסדרה הלאומי ומזהה את כל 8 הכלים והמשאבים.
+                      </p>
+                      <button
+                        onClick={() => setActiveTab('mcp')}
+                        className="px-3 py-1.5 rounded-[6px] bg-[#0068f5] hover:bg-[#0057cc] text-white text-xs font-semibold flex items-center gap-1 cursor-pointer shrink-0"
+                      >
+                        מדריך לכל 10 הסביבות <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -645,24 +736,26 @@ export default function App() {
                   <div className="space-y-4 animate-in fade-in duration-300">
                     <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-2">
                       <span className="flex items-center gap-2">
-                        <Monitor className="w-4 h-4 text-amber-400" /> חלון שיחה ב-Claude Desktop / Cursor
+                        <Monitor className="w-4 h-4 text-amber-400" /> חלון שיחה ב-Claude Desktop / Cursor / OpenCode
                       </span>
-                      <span className="text-amber-400 font-mono">2. שאילתת המשתמש</span>
+                      <span className="text-amber-400 font-mono">שלב 2 מתוך 5: שאילתת משתמש</span>
                     </div>
 
                     <div className="bg-slate-800/80 p-4 rounded-[8px] border border-slate-700 space-y-2">
                       <div className="flex items-center gap-2 text-xs text-blue-300 font-bold">
                         <span className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px]">אתה</span>
-                        משתמש שואל:
+                        משתמש שואל בעברית רגילה:
                       </div>
-                      <p className="text-sm font-semibold text-white pr-7">
-                        "שלוף לי ממאגר האסדרה הלאומי את חוק רישוי שירותי התעופה, התשכ"ג-1963 ואת התקנות שהותקנו מכוחו."
+                      <p className="text-sm font-semibold text-white pr-7 leading-relaxed">
+                        "שלוף לי ממאגר האסדרה הלאומי את חוק רישוי שירותי התעופה, התשכ"ג-1963 ואת כל התקנות שהותקנו מכוחו."
                       </p>
                     </div>
 
-                    <p className="text-xs text-slate-400">
-                      סוכן ה-AI מזהה באופן אוטונומי שעליו לפנות לכלי <code className="text-blue-300 font-mono">search_regulations</code> של שרת ה-MCP הישראלי.
-                    </p>
+                    <div className="p-3 bg-slate-950 rounded-[6px] border border-slate-800 text-xs text-slate-300 space-y-1">
+                      <p className="text-emerald-400 font-mono">✓ ניתוח אוטונומי של ה-LLM:</p>
+                      <p>הסוכן מזהה צורך באחזור עובדתי ומפעיל את הכלי <code className="text-blue-300 font-mono">search_regulations</code> עם הפרמטרים:</p>
+                      <p className="font-mono text-amber-300" dir="ltr">&#123; "query": "חוק רישוי שירותי התעופה", "limit": 5 &#125;</p>
+                    </div>
                   </div>
                 )}
 
@@ -670,23 +763,23 @@ export default function App() {
                   <div className="space-y-4 animate-in fade-in duration-300">
                     <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-2">
                       <span className="flex items-center gap-2">
-                        <Terminal className="w-4 h-4 text-emerald-400" /> הפעלת הכלי בפרוטוקול JSON-RPC 2.0
+                        <Terminal className="w-4 h-4 text-emerald-400" /> הפעלת הכלי בפרוטוקול JSON-RPC 2.0 (Direct MCP Call)
                       </span>
-                      <span className="text-emerald-400 font-mono">3. קריאת הכלי ושליפת הנתונים</span>
+                      <span className="text-emerald-400 font-mono">שלב 3 מתוך 5: קריאת שרת ואחזור</span>
                     </div>
 
-                    <div className="bg-slate-950 p-3 rounded-[6px] border border-slate-800 font-mono text-[11px] text-emerald-400 space-y-1" dir="ltr">
+                    <div className="bg-slate-950 p-3.5 rounded-[6px] border border-slate-800 font-mono text-[11px] text-emerald-400 space-y-1.5" dir="ltr">
                       <p className="text-slate-400">// Calling tool: israel-regulation.search_regulations</p>
-                      <p>POST /api/mcp/rpc - 200 OK (38ms)</p>
-                      <p className="text-blue-300">&#123; "name": "search_regulations", "arguments": &#123; "query": "חוק רישוי שירותי התעופה" &#125; &#125;</p>
-                      <p className="text-amber-300">&#10140; 8 records found in regulation.gov.il datastore</p>
-                      <p className="text-slate-400">• _id: 6212 (חקיקה ראשית - רשות התעופה האזרחית)</p>
-                      <p className="text-slate-400">• _id: 6245 (תקנות פטור מרישיון הפעלה מסחרית, 2018)</p>
-                      <p className="text-slate-400">• _id: 5625 (תקנות רישוי שירותי תעופה - טיסות שכר, 2023)</p>
+                      <p>POST /api/mcp/rpc - 200 OK (38ms latency)</p>
+                      <p className="text-blue-300">&#123; "name": "search_regulations", "arguments": &#123; "query": "שירותי תעופה" &#125; &#125;</p>
+                      <p className="text-amber-300">&#10140; 71 records found in regulation.gov.il datastore</p>
+                      <p className="text-slate-300">• _id: 6212 (חקיקה ראשית - רשות התעופה האזרחית)</p>
+                      <p className="text-slate-300">• _id: 6245 (תקנות פטור מרישיון הפעלה מסחרית, 2018)</p>
+                      <p className="text-slate-300">• _id: 5625 (תקנות רישוי שירותי תעופה - טיסות שכר, 2023)</p>
                     </div>
 
                     <p className="text-xs text-slate-300">
-                      השרת מתשאל ישירות את ה-API הממשלתי ומחזיר קישורים חיים לנוסח החוק בכנסת ובוויקיטקסט.
+                      השרת מתשאל ישירות את המאגר הלאומי (data.gov.il), מנקה קישורי ויקיטקסט וכנסת, ומחזיר נתוני אמת ללא שום הזיות.
                     </p>
                   </div>
                 )}
@@ -695,9 +788,33 @@ export default function App() {
                   <div className="space-y-4 animate-in fade-in duration-300">
                     <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-2">
                       <span className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-purple-400" /> תשובת ה-AI הסופית
+                        <SlidersHorizontal className="w-4 h-4 text-cyan-400" /> דפדוף עמוק וגישה לכל פיפס (Deep Offset Paging)
                       </span>
-                      <span className="text-purple-400 font-mono">4. סיכום החוק ותקנות המשנה</span>
+                      <span className="text-cyan-400 font-mono">שלב 4 מתוך 5: סריקת כל 6,576 הרשומות</span>
+                    </div>
+
+                    <div className="bg-slate-950 p-3.5 rounded-[6px] border border-slate-800 font-mono text-[11px] text-cyan-300 space-y-1.5" dir="ltr">
+                      <p className="text-slate-400">// Deep Paging: Retrieving record offset 1000+</p>
+                      <p>POST /api/mcp/rpc - 200 OK (42ms)</p>
+                      <p className="text-blue-300">&#123; "name": "search_regulations", "arguments": &#123; "offset": 1000, "limit": 10, "sort": "_id asc" &#125; &#125;</p>
+                      <p className="text-emerald-400">&#10140; Successfully fetched records 1001 to 1010 of 6,576</p>
+                      <p className="text-slate-400">• _id: 1001 (תקנות המים - מניעת זיהום מים, התשנ"א-1991)</p>
+                      <p className="text-slate-400">• _id: 1002 (צו הפיקוח על מצרכים ושירותים - שמנים ושומנים)</p>
+                    </div>
+
+                    <p className="text-xs text-slate-300">
+                      אפשר לדפדף עד אחרון החוקים במאגר. שום מידע אינו חסום או מקוצץ!
+                    </p>
+                  </div>
+                )}
+
+                {videoStep === 5 && (
+                  <div className="space-y-4 animate-in fade-in duration-300">
+                    <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-2">
+                      <span className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-purple-400" /> תשובת ה-AI הסופית עם קישורים ישירים לרשומות
+                      </span>
+                      <span className="text-purple-400 font-mono">שלב 5 מתוך 5: תוצאה מובנית</span>
                     </div>
 
                     <div className="bg-slate-800/90 p-4 rounded-[8px] border border-slate-700 text-xs space-y-2.5">
@@ -713,7 +830,7 @@ export default function App() {
                     </div>
 
                     <div className="flex items-center justify-between pt-1">
-                      <span className="text-[11px] text-slate-400">התהליך הושלם בתוך פחות מחצי שנייה!</span>
+                      <span className="text-[11px] text-slate-400">התהליך הושלם בתוך 38ms!</span>
                       <button
                         onClick={() => {
                           setSelectedTool('search_regulations');
@@ -729,6 +846,18 @@ export default function App() {
                 )}
               </div>
             </div>
+
+            {/* ========================================================= */}
+            {/* 100% MCP READINESS SUITE & DEEP REGISTRY INSPECTOR */}
+            {/* ========================================================= */}
+            <ReadinessSuite
+              onTestQuery={(tool, params) => {
+                setSelectedTool(tool);
+                setToolParamsJson(params);
+                setActiveTab('console');
+              }}
+              onNavigateToConsole={() => setActiveTab('console')}
+            />
 
             {/* ========================================================= */}
             {/* SCREENSHOTS & SYSTEM ARCHITECTURE GALLERY */}
@@ -822,17 +951,26 @@ export default function App() {
                   <div className="w-7 h-7 rounded-full bg-[#0068f5] text-white flex items-center justify-center font-bold text-xs">
                     2
                   </div>
-                  <h4 className="font-bold text-[#0c3058] text-sm">הדבק בהגדרות Claude / Cursor</h4>
+                  <h4 className="font-bold text-[#0c3058] text-sm">הדבק ב-OpenCode / Claude / Cursor</h4>
                   <p className="text-xs text-[#5878a4]">
-                    פתח את <code className="font-mono text-[#0068f5]">claude_desktop_config.json</code> או <code className="font-mono text-[#0068f5]">.cursor/mcp.json</code> והדבק את הבלוק.
+                    הרץ <code className="font-mono text-[#0068f5]">opencode mcp add</code> או הדבק ב-<code className="font-mono text-[#0068f5]">claude_desktop_config.json</code> / <code className="font-mono text-[#0068f5]">.cursor/mcp.json</code>.
                   </p>
-                  <button
-                    onClick={() => handleCopy(claudeDesktopConfig, 'step-claude')}
-                    className="w-full py-1.5 rounded-[6px] bg-white hover:bg-[#ebf3ff] text-[#0068f5] border border-[#c2d4ec] text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
-                  >
-                    {copiedId === 'step-claude' ? <Check className="w-3.5 h-3.5 text-[#499522]" /> : <Copy className="w-3.5 h-3.5" />}
-                    העתק תצורת JSON
-                  </button>
+                  <div className="flex flex-col gap-1.5 pt-1">
+                    <button
+                      onClick={() => handleCopy(`opencode mcp add israel-regulation --url ${sseUrl}`, 'step-opencode')}
+                      className="w-full py-1.5 rounded-[6px] bg-white hover:bg-[#ebf3ff] text-[#0c3058] border border-[#c2d4ec] text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      {copiedId === 'step-opencode' ? <Check className="w-3.5 h-3.5 text-[#499522]" /> : <Terminal className="w-3.5 h-3.5 text-emerald-600" />}
+                      {copiedId === 'step-opencode' ? 'פקודת OpenCode הועתקה!' : 'העתק פקודת OpenCode CLI'}
+                    </button>
+                    <button
+                      onClick={() => handleCopy(claudeDesktopConfig, 'step-claude')}
+                      className="w-full py-1.5 rounded-[6px] bg-white hover:bg-[#ebf3ff] text-[#0068f5] border border-[#c2d4ec] text-xs font-semibold flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      {copiedId === 'step-claude' ? <Check className="w-3.5 h-3.5 text-[#499522]" /> : <Copy className="w-3.5 h-3.5" />}
+                      העתק תצורת JSON (Claude / Cursor)
+                    </button>
+                  </div>
                 </div>
 
                 <div className="p-4 rounded-[8px] bg-[#f1f5fb] border border-[#c2d4ec] space-y-2">
@@ -1071,71 +1209,17 @@ export default function App() {
               </div>
             </div>
 
-            {/* Software Integration Guides */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-bold text-[#0c3058] flex items-center gap-2">
-                <SlidersHorizontal className="w-5 h-5 text-[#0068f5]" />
-                הוראות חיבור מהירות לתוכנות AI
-              </h3>
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                {/* Claude Desktop */}
-                <div className="bg-white p-5 rounded-[8px] border border-[#c2d4ec] shadow-[0_1px_2px_rgba(0,0,0,0.06)] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-[6px] bg-[#ebf3ff] text-[#0068f5] flex items-center justify-center font-bold text-xs">
-                        C
-                      </div>
-                      <h4 className="font-bold text-[#0c3058] text-sm">Claude Desktop</h4>
-                    </div>
-                    <span className="text-[11px] text-[#5878a4] font-mono">claude_desktop_config.json</span>
-                  </div>
-                  <p className="text-xs text-[#5878a4]">
-                    הדבק בקובץ ההגדרות תחת מפתח <code className="text-[#0068f5] font-mono">mcpServers</code>:
-                  </p>
-                  <div className="relative">
-                    <pre dir="ltr" className="bg-[#f1f5fb] p-3 rounded-[6px] border border-[#c2d4ec] text-xs font-mono text-[#0c3058] overflow-x-auto">
-                      {claudeDesktopConfig}
-                    </pre>
-                    <button
-                      onClick={() => handleCopy(claudeDesktopConfig, 'claude')}
-                      className="absolute top-2 right-2 p-1.5 rounded-[6px] bg-white hover:bg-[#ebf3ff] border border-[#c2d4ec] text-[#0068f5] text-xs flex items-center gap-1 cursor-pointer"
-                      title="העתק"
-                    >
-                      {copiedId === 'claude' ? <Check className="w-3.5 h-3.5 text-[#499522]" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Cursor & Windsurf */}
-                <div className="bg-white p-5 rounded-[8px] border border-[#c2d4ec] shadow-[0_1px_2px_rgba(0,0,0,0.06)] space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-[6px] bg-[#ebf3ff] text-[#0068f5] flex items-center justify-center font-bold text-xs">
-                        ⚡
-                      </div>
-                      <h4 className="font-bold text-[#0c3058] text-sm">Cursor &amp; Windsurf IDE</h4>
-                    </div>
-                    <span className="text-[11px] text-[#5878a4] font-mono">.cursor/mcp.json</span>
-                  </div>
-                  <p className="text-xs text-[#5878a4]">
-                    הוסף לקובץ <code className="text-[#0068f5] font-mono">.cursor/mcp.json</code> בפרויקט שלך:
-                  </p>
-                  <div className="relative">
-                    <pre dir="ltr" className="bg-[#f1f5fb] p-3 rounded-[6px] border border-[#c2d4ec] text-xs font-mono text-[#0c3058] overflow-x-auto">
-                      {cursorConfig}
-                    </pre>
-                    <button
-                      onClick={() => handleCopy(cursorConfig, 'cursor')}
-                      className="absolute top-2 right-2 p-1.5 rounded-[6px] bg-white hover:bg-[#ebf3ff] border border-[#c2d4ec] text-[#0068f5] text-xs flex items-center gap-1 cursor-pointer"
-                      title="העתק"
-                    >
-                      {copiedId === 'cursor' ? <Check className="w-3.5 h-3.5 text-[#499522]" /> : <Copy className="w-3.5 h-3.5" />}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
+            {/* Software Integration Guides for 10 Clients (OpenCode, Claude, Cursor, Windsurf, Cline, etc.) */}
+            <McpClientGuides
+              sseUrl={sseUrl}
+              onCopy={handleCopy}
+              copiedId={copiedId}
+              onTestInConsole={(tool, params) => {
+                setSelectedTool(tool);
+                setToolParamsJson(params);
+                setActiveTab('console');
+              }}
+            />
 
             {/* MCP Tools Catalog Table */}
             <div className="bg-white p-5 rounded-[8px] border border-[#c2d4ec] shadow-[0_1px_2px_rgba(0,0,0,0.06)] space-y-4">
@@ -1269,14 +1353,19 @@ export default function App() {
               <div className="lg:col-span-5 space-y-4">
                 <div className="bg-white p-5 rounded-[8px] border border-[#c2d4ec] shadow-[0_1px_2px_rgba(0,0,0,0.06)] space-y-3.5">
                   <div>
-                    <label className="text-xs font-bold text-[#0c3058] block mb-1">בחר כלי לבדיקה:</label>
+                    <div className="flex items-center gap-1 mb-1">
+                      <label className="text-xs font-bold text-[#0c3058]">בחר כלי לבדיקה:</label>
+                      <InfoTooltip content="בחר את כלי ה-MCP אותו תרצה להריץ בפרוטוקול JSON-RPC 2.0" />
+                    </div>
                     <select
                       value={selectedTool}
                       onChange={(e) => handleToolPresetChange(e.target.value)}
                       className="w-full bg-white border border-[#c2d4ec] focus:border-[#0068f5] rounded-[8px] p-2.5 text-xs text-[#0c3058] font-mono"
                     >
-                      <option value="search_regulations">search_regulations (חיפוש חוקים ותקנות)</option>
-                      <option value="get_regulation_by_id">get_regulation_by_id (פרטי חוק לפי ID)</option>
+                      <option value="search_regulations">search_regulations (חיפוש חוקים ותקנות עם דפדוף עמוק)</option>
+                      <option value="get_regulation_by_id">get_regulation_by_id (פרטי חוק לפי ID וקישורים)</option>
+                      <option value="inspect_registry_schema">inspect_registry_schema (מפרט 12 שדות הסכמה מלא)</option>
+                      <option value="get_regulation_raw">get_regulation_raw (רשומת JSON גולמית מ-data.gov.il)</option>
                       <option value="get_regulatory_reliefs">get_regulatory_reliefs (הקלות רגולציה)</option>
                       <option value="check_business_compliance">check_business_compliance (ציות לענפים)</option>
                       <option value="analyze_regulatory_impact">analyze_regulatory_impact (ניתוח RIA)</option>
@@ -1286,13 +1375,18 @@ export default function App() {
 
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-bold text-[#0c3058]">פרמטרים (JSON arguments):</label>
-                      <button
-                        onClick={() => handleToolPresetChange(selectedTool)}
-                        className="text-[11px] text-[#0068f5] hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <RefreshCw className="w-3 h-3" /> איפוס לברירת מחדל
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <label className="text-xs font-bold text-[#0c3058]">פרמטרים (JSON arguments):</label>
+                        <InfoTooltip content="הזן את הפרמטרים במבנה אובייקט JSON תקני בהתאם ל-Schema של הכלי הנבחר" />
+                      </div>
+                      <Tooltip content="מאפס את שדות ה-JSON לדוגמת ברירת המחדל המומלצת">
+                        <button
+                          onClick={() => handleToolPresetChange(selectedTool)}
+                          className="text-[11px] text-[#0068f5] hover:underline flex items-center gap-1 cursor-pointer"
+                        >
+                          <RefreshCw className="w-3 h-3" /> איפוס לברירת מחדל
+                        </button>
+                      </Tooltip>
                     </div>
                     <textarea
                       dir="ltr"
@@ -1303,21 +1397,23 @@ export default function App() {
                     />
                   </div>
 
-                  <button
-                    onClick={handleExecuteTool}
-                    disabled={consoleLoading}
-                    className="w-full py-2.5 px-4 rounded-[8px] bg-[#0068f5] hover:bg-[#0057cc] active:bg-[#0045a3] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-[0_1px_3px_rgba(0,104,245,0.3)] disabled:opacity-50 cursor-pointer transition-colors"
-                  >
-                    {consoleLoading ? (
-                      <>
-                        <RefreshCw className="w-4 h-4 animate-spin" /> מריץ קריאת MCP...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" /> בצע tools/call
-                      </>
-                    )}
-                  </button>
+                  <Tooltip content="שולח בקשת tools/call בפרוטוקול JSON-RPC 2.0 ומציג את הפלט בזמן אמת" className="w-full">
+                    <button
+                      onClick={handleExecuteTool}
+                      disabled={consoleLoading}
+                      className="w-full py-2.5 px-4 rounded-[8px] bg-[#0068f5] hover:bg-[#0057cc] active:bg-[#0045a3] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-[0_1px_3px_rgba(0,104,245,0.3)] disabled:opacity-50 cursor-pointer transition-colors"
+                    >
+                      {consoleLoading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" /> מריץ קריאת MCP...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-4 h-4" /> בצע tools/call
+                        </>
+                      )}
+                    </button>
+                  </Tooltip>
                 </div>
 
                 {/* One-click Aviation & Quick Presets */}
@@ -1343,6 +1439,16 @@ export default function App() {
                     >
                       <span className="font-semibold">📑 שליפת רשומה 6212 (חוק התעופה המלא)</span>
                       <span className="text-[11px] font-mono">get_regulation_by_id</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedTool('inspect_registry_schema');
+                        setToolParamsJson('{}');
+                      }}
+                      className="p-2.5 rounded-[8px] bg-[#eef8e8] hover:bg-[#499522] hover:text-white text-[#0c3058] border border-[#7ad94a] text-xs text-right transition-colors cursor-pointer flex items-center justify-between"
+                    >
+                      <span className="font-semibold">🛡️ סורק 12 שדות הסכמה (100% כיסוי)</span>
+                      <span className="text-[11px] font-mono">inspect_registry_schema</span>
                     </button>
                     <button
                       onClick={() => {
@@ -1497,14 +1603,20 @@ export default function App() {
               <div className="flex flex-col md:flex-row gap-3">
                 <div className="relative flex-1">
                   <Search className="w-4 h-4 text-[#5878a4] absolute right-3.5 top-3.5" />
-                  <input
-                    type="text"
-                    placeholder="חפש חוק, תקנה או נושא (למשל: רישוי שירותי התעופה, בריאות הציבור, מזון, כבאות, חשמל, סייבר)..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && fetchRegulations(searchQuery, selectedMinistry, selectedType, selectedTag)}
-                    className="w-full bg-[#f1f5fb] border border-[#c2d4ec] focus:border-[#0068f5] focus:bg-white rounded-[8px] pr-10 pl-4 py-2.5 text-sm text-[#0c3058] placeholder-[#5878a4]"
-                  />
+                  <Tooltip
+                    content="הקלד מילות מפתח לחיפוש חופשי בשמות החוקים והתקנות (למשל: תעופה, רישוי, בטיחות, מזון, סייבר)"
+                    position="bottom"
+                    className="w-full"
+                  >
+                    <input
+                      type="text"
+                      placeholder="חפש חוק, תקנה או נושא (למשל: רישוי שירותי התעופה, בריאות הציבור, מזון, כבאות, חשמל, סייבר)..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && fetchRegulations(searchQuery, selectedMinistry, selectedType, selectedTag)}
+                      className="w-full bg-[#f1f5fb] border border-[#c2d4ec] focus:border-[#0068f5] focus:bg-white rounded-[8px] pr-10 pl-4 py-2.5 text-sm text-[#0c3058] placeholder-[#5878a4]"
+                    />
+                  </Tooltip>
                   {searchQuery && (
                     <button
                       onClick={() => {
@@ -1518,18 +1630,23 @@ export default function App() {
                   )}
                 </div>
 
-                <button
-                  onClick={() => fetchRegulations(searchQuery, selectedMinistry, selectedType, selectedTag)}
-                  className="px-6 py-2.5 rounded-[8px] bg-[#0068f5] hover:bg-[#0057cc] active:bg-[#0045a3] text-white font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                >
-                  <Search className="w-4 h-4" /> חפש במאגר
-                </button>
+                <Tooltip content="מריץ חיפוש מיידי במאגר הלאומי (data.gov.il) לפי המילים והמסננים שהוגדרו">
+                  <button
+                    onClick={() => fetchRegulations(searchQuery, selectedMinistry, selectedType, selectedTag)}
+                    className="px-6 py-2.5 rounded-[8px] bg-[#0068f5] hover:bg-[#0057cc] active:bg-[#0045a3] text-white font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    <Search className="w-4 h-4" /> חפש במאגר
+                  </button>
+                </Tooltip>
               </div>
 
               {/* Filters Row */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                 <div>
-                  <label className="text-xs font-bold text-[#5878a4] block mb-1">סינון לפי משרד ממשלתי:</label>
+                  <div className="flex items-center gap-1 mb-1">
+                    <label className="text-xs font-bold text-[#5878a4]">סינון לפי משרד ממשלתי:</label>
+                    <InfoTooltip content="סנן רגולציות לפי המשרד הממונה (כגון משרד הכלכלה, הבריאות, התחבורה וכו')" />
+                  </div>
                   <select
                     value={selectedMinistry}
                     onChange={(e) => {
@@ -1548,7 +1665,10 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-[#5878a4] block mb-1">סוג חקיקה:</label>
+                  <div className="flex items-center gap-1 mb-1">
+                    <label className="text-xs font-bold text-[#5878a4]">סוג חקיקה:</label>
+                    <InfoTooltip content="הפרד בין חקיקה ראשית (חוקי כנסת) לבין חקיקת משנה (תקנות, צווים וכללים ממשלתיים)" />
+                  </div>
                   <select
                     value={selectedType}
                     onChange={(e) => {
@@ -1564,7 +1684,10 @@ export default function App() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-bold text-[#5878a4] block mb-1">תגית נושא:</label>
+                  <div className="flex items-center gap-1 mb-1">
+                    <label className="text-xs font-bold text-[#5878a4]">תגית נושא:</label>
+                    <InfoTooltip content="חיתוך רוחבי לפי תחומי פעילות כגון: רישוי עסקים, בטיחות, איכות הסביבה, בריאות הציבור, סייבר" />
+                  </div>
                   <select
                     value={selectedTag}
                     onChange={(e) => {

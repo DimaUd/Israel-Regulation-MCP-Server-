@@ -7,6 +7,9 @@ import { GoogleGenAI } from '@google/genai';
 import {
   fetchRegulationsFromGov,
   getRegulationById,
+  getRawRegulationById,
+  getRegistrySchemaInfo,
+  runReadinessVerification,
   fetchReliefs,
   getRegulationStats,
   BUSINESS_SECTORS,
@@ -125,21 +128,43 @@ app.post('/api/mcp/rpc', async (req: Request, res: Response) => {
           tools: [
             {
               name: 'search_regulations',
-              description: 'חיפוש חוקים, תקנות וצווים במאגר האסדרה הלאומי (regulation.gov.il)',
+              description: 'חיפוש חוקים, תקנות וצווים במאגר האסדרה הלאומי (regulation.gov.il) עם דפדוף עמוק וסינון מרובה',
               inputSchema: {
                 type: 'object',
                 properties: {
                   query: { type: 'string', description: 'מילת חיפוש' },
                   office_name: { type: 'string', description: 'שם המשרד הממשלתי' },
                   legislation_type: { type: 'string', description: 'חקיקה ראשית / חקיקת משנה' },
+                  is_regulation: { type: 'string', enum: ['כן', 'לא'], description: 'האם אסדרה עסקית' },
+                  authorizing_law: { type: 'string', description: 'חוק מסמיך' },
+                  knesset_id: { type: 'string', description: 'מזהה חוק בכנסת' },
                   tag: { type: 'string', description: 'תגית נושאית' },
+                  sort: { type: 'string', description: 'מיון' },
                   limit: { type: 'number', default: 10 },
+                  offset: { type: 'number', default: 0 },
+                  include_raw: { type: 'boolean', default: false },
                 },
               },
             },
             {
               name: 'get_regulation_by_id',
               description: 'קבלת פרטים מלאים על חוק/תקנה לפי ID עם קישורים לכנסת ולויקיטקסט',
+              inputSchema: {
+                type: 'object',
+                properties: {
+                  id: { type: ['number', 'string'], description: 'מזהה הרשומה (1-6576)' },
+                },
+                required: ['id'],
+              },
+            },
+            {
+              name: 'inspect_registry_schema',
+              description: 'מפרט סכמת 12 השדות המלאה של מאגר האסדרה הלאומי ואימות כיסוי 100%',
+              inputSchema: { type: 'object', properties: {} },
+            },
+            {
+              name: 'get_regulation_raw',
+              description: 'קבלת רשומת JSON הגולמית המקורית מ-data.gov.il ללא שום עיבוד',
               inputSchema: {
                 type: 'object',
                 properties: {
@@ -204,14 +229,42 @@ app.post('/api/mcp/rpc', async (req: Request, res: Response) => {
           query: args.query,
           officeName: args.office_name,
           legislationType: args.legislation_type,
+          isRegulation: args.is_regulation,
+          authorizingLaw: args.authorizing_law,
+          knessetId: args.knesset_id,
           tag: args.tag,
+          sort: args.sort,
           limit: args.limit || 10,
+          offset: args.offset || 0,
+          includeRaw: args.include_raw,
         });
         return res.json({
           jsonrpc: '2.0',
           id,
           result: {
             content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+          },
+        });
+      }
+
+      if (toolName === 'inspect_registry_schema') {
+        const schema = getRegistrySchemaInfo();
+        return res.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            content: [{ type: 'text', text: JSON.stringify(schema, null, 2) }],
+          },
+        });
+      }
+
+      if (toolName === 'get_regulation_raw') {
+        const raw = await getRawRegulationById(args.id);
+        return res.json({
+          jsonrpc: '2.0',
+          id,
+          result: {
+            content: [{ type: 'text', text: JSON.stringify(raw || { error: 'Not found' }, null, 2) }],
           },
         });
       }
@@ -364,16 +417,41 @@ app.post('/api/mcp/rpc', async (req: Request, res: Response) => {
 
 // Search regulations
 app.get('/api/regulation/search', async (req: Request, res: Response) => {
-  const { q, office, type, tag, limit, offset } = req.query;
+  const { q, office, type, is_regulation, authorizing_law, knesset_id, tag, sort, limit, offset, raw } = req.query;
   const result = await fetchRegulationsFromGov({
     query: q as string,
     officeName: office as string,
     legislationType: type as string,
+    isRegulation: is_regulation as string,
+    authorizingLaw: authorizing_law as string,
+    knessetId: knesset_id as string,
     tag: tag as string,
+    sort: sort as string,
     limit: limit ? Number(limit) : 20,
     offset: offset ? Number(offset) : 0,
+    includeRaw: raw === 'true' || raw === '1',
   });
   res.json(result);
+});
+
+// Full 12-field schema specification of data.gov.il registry
+app.get('/api/regulation/schema', (_req: Request, res: Response) => {
+  res.json(getRegistrySchemaInfo());
+});
+
+// Automated 100% MCP & Registry Readiness verification suite
+app.get('/api/regulation/readiness', async (_req: Request, res: Response) => {
+  const result = await runReadinessVerification();
+  res.json(result);
+});
+
+// Raw untouched record from CKAN
+app.get('/api/regulation/raw/:id', async (req: Request, res: Response) => {
+  const raw = await getRawRegulationById(req.params.id);
+  if (!raw) {
+    return res.status(404).json({ error: 'Raw record not found' });
+  }
+  res.json(raw);
 });
 
 // Single regulation

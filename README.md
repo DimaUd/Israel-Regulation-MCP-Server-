@@ -6,16 +6,49 @@
 [![Regulations](https://img.shields.io/badge/Indexed%20Regulations-6%2C576+-green?style=flat-square)](https://data.gov.il)
 [![License](https://img.shields.io/badge/License-MIT-purple?style=flat-square)](LICENSE)
 
-שרת **Model Context Protocol (MCP)** תקני וממשק חקר מתקדם המעניק לסוכני בינה מלאכותית (Claude Desktop, Cursor, Windsurf, Claude Code, Cline) חיבור ישיר ומאובטח לכלל החקיקה הראשית, תקנות המשנה, דרישות הרישוי וההקלות הרגולטוריות של מדינת ישראל.
+שרת **Model Context Protocol (MCP)** תקני וממשק חקר מתקדם המעניק לסוכני בינה מלאכותית (**OpenCode, Claude Desktop, Cursor, Windsurf, Cline / Roo Code, Claude Code, Continue.dev, Zed**) חיבור ישיר ומאובטח לכלל החקיקה הראשית, תקנות המשנה, דרישות הרישוי וההקלות הרגולטוריות של מדינת ישראל.
 
 ---
 
 ## ⚡ התחלה מהירה תוך 60 שניות (Quickstart)
 
-### 1. הפעלה מרוחקת ישירה ב-Claude Desktop (ללא התקנה)
-הוסף את ההגדרה הבאה לקובץ ההגדרות שלך:
+כתובת ה-SSE הראשית לחיבור מרוחק בענן (ללא התקנה):
+```text
+https://ais-dev-s4gnwdsamdhgmjwkei6eub-108733651766.europe-west3.run.app/api/mcp/sse
+```
+
+---
+
+## 🔌 מדריך התחברות לכל סביבות העבודה (OpenCode, Claude, Cursor ועוד)
+
+### 1. 🚀 חיבור ל-OpenCode (מומלץ לקוד פתוח & CLI)
+[OpenCode](https://opencode.ai) תומך ב-MCP באופן טבעי. ניתן לחבר את מאגר החקיקה בשתי שניות:
+
+#### אפשרות א': פקודת CLI בשורה אחת
+```bash
+opencode mcp add israel-regulation --url https://ais-dev-s4gnwdsamdhgmjwkei6eub-108733651766.europe-west3.run.app/api/mcp/sse
+```
+
+#### אפשרות ב': קובץ הגדרות פרויקט `opencode.json` (או `~/.config/opencode/config.json`)
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "israel-regulation": {
+      "type": "remote",
+      "url": "https://ais-dev-s4gnwdsamdhgmjwkei6eub-108733651766.europe-west3.run.app/api/mcp/sse"
+    }
+  }
+}
+```
+
+---
+
+### 2. 🌟 חיבור ל-Claude Desktop (Anthropic)
+קובץ ההגדרות:
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 - **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **Linux:** `~/.config/Claude/claude_desktop_config.json`
 
 ```json
 {
@@ -27,13 +60,7 @@
 }
 ```
 
-### 2. הפעלה מקומית (Stdio Mode)
-```bash
-# הרצת שרת Stdio
-npx -y tsx mcp-server/index.ts
-```
-
-תצורת Claude Desktop עבור Stdio:
+*להפעלה מקומית (Stdio Node.js):*
 ```json
 {
   "mcpServers": {
@@ -45,8 +72,10 @@ npx -y tsx mcp-server/index.ts
 }
 ```
 
-### 3. הפעלה ב-Cursor או Windsurf
-הוסף לקובץ `.cursor/mcp.json`:
+---
+
+### 3. ⚡ חיבור ל-Cursor IDE
+הוסף לקובץ `.cursor/mcp.json` בפרויקט שלך (או דרך ממשק `Cursor Settings` > `Features` > `MCP` > `Add New MCP Server`):
 ```json
 {
   "mcpServers": {
@@ -55,6 +84,128 @@ npx -y tsx mcp-server/index.ts
     }
   }
 }
+```
+
+---
+
+### 4. 🌊 חיבור ל-Windsurf (Codeium)
+הוסף לקובץ `~/.codeium/windsurf/mcp_config.json`:
+```json
+{
+  "mcpServers": {
+    "israel-regulation": {
+      "serverUrl": "https://ais-dev-s4gnwdsamdhgmjwkei6eub-108733651766.europe-west3.run.app/api/mcp/sse"
+    }
+  }
+}
+```
+
+---
+
+### 5. 🧩 חיבור ל-VS Code (Cline / Roo Code)
+הוסף לקובץ `cline_mcp_settings.json` (או דרך סרגל הכלים של התוסף):
+- **Windows:** `%APPDATA%\Code\User\globalStorage\saoudrizwan.claude-dev\settings\cline_mcp_settings.json`
+- **macOS:** `~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json`
+
+```json
+{
+  "mcpServers": {
+    "israel-regulation": {
+      "url": "https://ais-dev-s4gnwdsamdhgmjwkei6eub-108733651766.europe-west3.run.app/api/mcp/sse",
+      "autoApprove": ["search_regulations", "get_regulation_by_id", "get_regulatory_reliefs"]
+    }
+  }
+}
+```
+
+---
+
+### 6. 💻 חיבור ל-Claude Code CLI (Anthropic Terminal)
+פקודת חיבור ישירה בטרמינל בשורה אחת:
+```bash
+claude mcp add --transport sse israel-regulation https://ais-dev-s4gnwdsamdhgmjwkei6eub-108733651766.europe-west3.run.app/api/mcp/sse
+```
+
+---
+
+### 7. 🔄 חיבור ל-Continue.dev (VS Code & JetBrains)
+הוסף לקובץ `~/.continue/config.json`:
+```json
+{
+  "experimental": {
+    "modelContextProtocolServers": [
+      {
+        "transport": {
+          "type": "sse",
+          "url": "https://ais-dev-s4gnwdsamdhgmjwkei6eub-108733651766.europe-west3.run.app/api/mcp/sse"
+        }
+      }
+    ]
+  }
+}
+```
+
+---
+
+### 8. ⚡ חיבור ל-Zed Editor
+הוסף לקובץ `~/.config/zed/settings.json`:
+```json
+{
+  "context_servers": {
+    "israel-regulation": {
+      "url": "https://ais-dev-s4gnwdsamdhgmjwkei6eub-108733651766.europe-west3.run.app/api/mcp/sse"
+    }
+  }
+}
+```
+
+---
+
+### 9. 🌐 חיבור ל-LibreChat / Open WebUI
+הוסף לקובץ `librechat.yaml`:
+```yaml
+mcpServers:
+  israel-regulation:
+    type: sse
+    url: "https://ais-dev-s4gnwdsamdhgmjwkei6eub-108733651766.europe-west3.run.app/api/mcp/sse"
+```
+
+---
+
+### 10. 🛠️ חיבור ישיר למפתחים (cURL & Python API)
+בדיקת שליפה ישירה ללא לקוח MCP בפרוטוקול JSON-RPC 2.0:
+
+#### cURL
+```bash
+curl -X POST https://ais-dev-s4gnwdsamdhgmjwkei6eub-108733651766.europe-west3.run.app/api/mcp/rpc \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+      "name": "search_regulations",
+      "arguments": { "query": "חוק רישוי שירותי התעופה", "limit": 5 }
+    }
+  }'
+```
+
+#### Python
+```python
+import requests
+
+url = "https://ais-dev-s4gnwdsamdhgmjwkei6eub-108733651766.europe-west3.run.app/api/mcp/rpc"
+payload = {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "tools/call",
+    "params": {
+        "name": "search_regulations",
+        "arguments": {"query": "חוק רישוי שירותי התעופה", "limit": 5}
+    }
+}
+res = requests.post(url, json=payload).json()
+print("נמצאו תוצאות:", res["result"])
 ```
 
 ---
@@ -99,9 +250,11 @@ npx -y tsx mcp-server/index.ts
 
 | שם הכלי | סוג הפעולה | תיאור | פרמטרים |
 |---|---|---|---|
-| `search_regulations` | **אחזור ישיר (Pure Retrieval)** | חיפוש טקסטואלי חופשי וסינון מדויק במאגר האסדרה הלאומי | `query`, `office_name`, `legislation_type`, `tag`, `limit`, `offset` |
-| `get_regulation_by_id` | **אחזור ישיר (Pure Retrieval)** | שליפת רשומת חוק/תקנה מלאה לפי מזהה ID עם קישורים ישירים | `id` (מספר רשומה) |
-| `get_regulatory_reliefs` | **אחזור ישיר (Pure Retrieval)** | שליפת הקלות, פטורים והתאמות רגולציה מכל משרדי הממשלה | `query`, `ministry`, `limit` |
+| `search_regulations` | **אחזור ישיר (Pure Retrieval)** | חיפוש טקסטואלי חופשי, סינון מדויק ודפדוף עמוק (כל 6,576 הרשומות) | `query`, `office_name`, `legislation_type`, `is_regulation`, `authorizing_law`, `knesset_id`, `tag`, `sort`, `limit`, `offset` |
+| `get_regulation_by_id` | **אחזור ישיר (Pure Retrieval)** | שליפת רשומת חוק/תקנה מלאה לפי מזהה ID עם קישורים ישירים לכנסת ולויקיטקסט | `id` (מספר רשומה) |
+| `inspect_registry_schema` | **בדיקת מוכנות (100% Readiness)** | מפרט כל 12 שדות הסכמה הרשמיים של data.gov.il עם סוגי נתונים וערכי דוגמה | ללא פרמטרים |
+| `get_regulation_raw` | **שליפה גולמית (Raw Datastore)** | שליפת רשומת JSON מקורית וגולמית ישירות מ-data.gov.il ללא שום טרנספורמציה | `id` (מספר רשומה) |
+| `get_regulatory_reliefs` | **אחזור ישיר (Pure Retrieval)** | שליפת הקלות, פטורים והתאמות רגולציה מכל משרדי הממשלה (192 הקלות) | `query`, `ministry`, `limit` |
 | `list_ministries_and_categories` | **אחזור ישיר (Pure Retrieval)** | רשימת כל משרדי הממשלה וכמויות החוקים והתקנות באחריותם | ללא פרמטרים |
 | `check_business_compliance` | **מיפוי וניתוח (Compliance)** | מיפוי רגולטורי, רגולטורים ורישיונות לפי ענף עסקי | `sector`, `business_description` |
 | `analyze_regulatory_impact` | **מתודולוגיה (RIA)** | הערכת השפעת רגולציה ובחינת חלופות לפי חוק עקרונות האסדרה | `proposed_rule_title`, `sector_affected`, `regulatory_objective` |
@@ -263,6 +416,59 @@ npx -y tsx mcp-server/index.ts
 * `regulation://national-registry/overview` – תעודת זהות, מטא-דאטה ובסיס חוקי (סעיף 37 לחוק עקרונות האסדרה).
 * `regulation://ministries/directory` – ספריית כלל משרדי הממשלה וכמויות הרגולציה.
 * `regulation://reliefs/summary` – תקציר הקלות ופטורים רגולטוריים.
+
+---
+
+### 🛡️ הגעה לכל פיפס במאגר – 100% כיסוי וסריקה מלאה
+
+המאגר מכיל **6,576 רשומות רשמיות** וכל אחת מהן ניתנת לאחזור מלא עד רמת השדה הבודד. שום נתון אינו מצונזר או חסום:
+
+#### 1. בדיקת סכמה רשמית ב-12 שדות מלאים (`inspect_registry_schema`):
+ניתן לתשאל את השרת ולקבל את מפרט כל 12 השדות של רשומת החקיקה ב-data.gov.il:
+1. `_id` (מספר מזהה חד-ערכי של הרשומה)
+2. `is_regulation` (האם החקיקה מטילה הוראות אסדרה מחייבות - "כן" / "לא")
+3. `office_name` (שם המשרד הממשלתי או הרגולטור הממונה)
+4. `legislation_type` (רובד החקיקה - "חקיקה ראשית" מול "חקיקת משנה")
+5. `legislation_name` (השם המלא של החוק, הצו או התקנה)
+6. `primary_authorizing_legislation` (שם החוק המסמיך להתקנת התקנה)
+7. `publication_date` (תאריך פרסום רשמי ברשומות)
+8. `last_update` (תאריך עדכון אחרון במאגר האסדרה)
+9. `primary_law_knesset_id` (מזהה רשמי של החוק במערכת החקיקה של הכנסת)
+10. `wikiurl / wiki_clean_url` (קישור ישיר לנוסח המלא והמעודכן בוויקיטקסט)
+11. `knesseturl / knesset_clean_url` (קישור ישיר למאגר החקיקה הלאומי באתר הכנסת)
+12. `tags / tags_list` (תגיות נושא וסיווגים מקצועיים)
+
+#### 2. שליפת רשומת JSON גולמית מקורית (`get_regulation_raw`):
+לקבלת אובייקט ה-JSON המקורי ישירות מ-data.gov.il ללא שום עיבוד מוקדם:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 105,
+  "method": "tools/call",
+  "params": {
+    "name": "get_regulation_raw",
+    "arguments": { "id": 6212 }
+  }
+}
+```
+
+#### 3. דפדוף עמוק עד אחרון החוקים (Deep Offset Pagination):
+באמצעות פרמטרי `limit` (עד 100) ו-`offset` ניתן לבצע סריקה מלאה (Crawl) של כל 6,576 הרשומות:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 106,
+  "method": "tools/call",
+  "params": {
+    "name": "search_regulations",
+    "arguments": {
+      "offset": 6500,
+      "limit": 100,
+      "sort": "_id asc"
+    }
+  }
+}
+```
 
 ---
 
